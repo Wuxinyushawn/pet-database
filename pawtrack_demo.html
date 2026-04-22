@@ -97,6 +97,15 @@ tr:hover td{background:var(--bg-secondary)}
 .dot{width:8px;height:8px;border-radius:50%;margin-top:5px}
 .dot-green{background:#5f9421}.dot-amber{background:#b47011}.dot-blue{background:#337cc8}
 .help{font-size:12px;color:var(--text-secondary)}
+.request-state{padding:16px;border:1px dashed var(--border);border-radius:10px;text-align:center;color:var(--text-secondary);background:var(--bg-secondary)}
+.loading-skeleton{position:relative;overflow:hidden;background:linear-gradient(90deg,var(--bg-secondary) 25%,var(--bg-primary) 37%,var(--bg-secondary) 63%);background-size:400% 100%;animation:skeleton 1.3s ease infinite;border-radius:8px;height:16px;margin:8px 0}
+.loading-skeleton.wide{height:20px}
+.loading-skeleton.row{height:34px}
+@keyframes skeleton{0%{background-position:100% 0}100%{background-position:0 0}}
+.error-state{padding:14px;border:1px solid rgba(162,50,50,0.35);border-left:4px solid var(--danger);border-radius:10px;background:rgba(162,50,50,0.06)}
+.error-actions{display:flex;justify-content:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.field-error{color:var(--danger);font-size:12px;margin-top:4px}
+.input.invalid,.select.invalid,.textarea.invalid{border-color:var(--danger);outline:2px solid rgba(162,50,50,0.18)}
 @media (max-width: 1100px) { .grid-4,.grid-2{grid-template-columns:1fr 1fr} }
 @media (max-width: 760px) {
   .sidebar{display:none}
@@ -273,9 +282,18 @@ const uiState = {
   assignments: [],
   activity: []
 };
+const requestState = {
+  pets: 'idle',
+  applications: 'idle',
+  adoptions: 'idle',
+  followups: 'idle',
+  medical: 'idle',
+  volunteers: 'idle'
+};
 
 let currentPage = 'dashboard';
 let keySequence = '';
+let activeConfirmResolver = null;
 
 function esc(str){ return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function badge(type, text){ return `<span class="badge ${type}">${esc(text)}</span>`; }
@@ -286,6 +304,80 @@ function showToast(msg, tone='info') {
   t.textContent = msg;
   t.className = 'toast show';
   setTimeout(()=>t.className='toast', 2800);
+}
+function loadingSkeleton(rows = 4) {
+  return `<div class="request-state">${Array.from({ length: rows }).map((_, idx) => `<div class="loading-skeleton ${idx === 0 ? 'wide' : 'row'}"></div>`).join('')}</div>`;
+}
+function emptyState(text = 'No data available yet.') {
+  return `<div class="request-state">${esc(text)}</div>`;
+}
+function errorState(message, retryAction) {
+  return `<div class="error-state"><div><strong>Load failed.</strong> ${esc(message)}</div><div class="error-actions"><button class="btn" data-error-retry="${esc(retryAction)}">Retry</button></div></div>`;
+}
+function mapErrorGuidance(error) {
+  if (error?.code === 'TIMEOUT') return { title: '请求超时', detail: '网络请求超时，请检查网络后重试。' };
+  if (error?.status === 500 || error?.code === 'SERVER_ERROR') return { title: '服务异常', detail: '服务器暂时不可用，请稍后再试。' };
+  if (error?.status === 401 || error?.status === 403 || error?.code === 'UNAUTHORIZED') return { title: '权限不足', detail: '当前账号权限不足，请联系管理员开通权限。' };
+  if (error?.status === 409 || error?.code === 'CONFLICT') return { title: '并发冲突', detail: '数据已被他人更新，请刷新后再提交。' };
+  return { title: '请求失败', detail: error?.message || '请求失败，请稍后重试。' };
+}
+function showActionableError(error, { retry, context = '操作失败' } = {}) {
+  const guide = mapErrorGuidance(error);
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>${esc(context)}：${esc(guide.title)}</h3>
+    <div class="help" style="margin-bottom:10px">${esc(guide.detail)}</div>
+    <div class="form-actions">
+      ${retry ? '<button class="btn btn-primary" id="error-retry-btn">重试</button>' : ''}
+      <button class="btn" id="error-detail-btn">查看详情</button>
+      <button class="btn" id="error-contact-btn">联系管理员</button>
+    </div>
+  `);
+  if (retry) document.getElementById('error-retry-btn').onclick = async () => { closeModal(); await retry(); };
+  document.getElementById('error-detail-btn').onclick = () => showToast(`${guide.title}: ${error?.message || 'Unknown error'}`, 'danger');
+  document.getElementById('error-contact-btn').onclick = () => showToast('请联系管理员并提供错误时间与操作步骤。', 'info');
+}
+function clearFieldErrors() {
+  document.querySelectorAll('.field-error').forEach(el => el.remove());
+  document.querySelectorAll('.input.invalid,.select.invalid,.textarea.invalid').forEach(el => el.classList.remove('invalid'));
+}
+function reportFormErrors(items) {
+  clearFieldErrors();
+  const first = items.find(item => item.invalid);
+  items.forEach(item => {
+    if (!item.invalid) return;
+    item.el.classList.add('invalid');
+    const msg = document.createElement('div');
+    msg.className = 'field-error';
+    msg.textContent = item.message;
+    item.el.insertAdjacentElement('afterend', msg);
+  });
+  if (first) {
+    first.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    first.el.focus();
+  }
+  return Boolean(first);
+}
+async function confirmAction({ title, message, confirmText = 'Confirm', danger = false, doubleConfirm = false, secondMessage = '该操作不可逆，是否再次确认？' }) {
+  const askOnce = (promptMessage) => new Promise(resolve => {
+    activeConfirmResolver = resolve;
+    openModal(`
+      <button class="modal-close" id="cancel-action-top">✕</button>
+      <h3>${esc(title)}</h3>
+      <div class="help" style="margin-bottom:10px">${esc(promptMessage)}</div>
+      <div class="form-actions">
+        <button class="btn" id="cancel-action-btn">取消</button>
+        <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="confirm-action-btn">${esc(confirmText)}</button>
+      </div>
+    `);
+    document.getElementById('confirm-action-btn').onclick = () => { closeModal(); activeConfirmResolver = null; resolve(true); };
+    document.getElementById('cancel-action-btn').onclick = () => { closeModal(); activeConfirmResolver = null; resolve(false); };
+    document.getElementById('cancel-action-top').onclick = () => { closeModal(); activeConfirmResolver = null; resolve(false); };
+  });
+  const first = await askOnce(message);
+  if (!first) return false;
+  if (!doubleConfirm) return true;
+  return askOnce(secondMessage);
 }
 function nowLabel() {
   const d = new Date();
@@ -313,6 +405,30 @@ function addActivity(text, type='amber') {
   uiState.activity = uiState.activity.slice(0, 8);
   renderDashboard(uiState);
 }
+function renderTableState(bodyId, { state, rowsHtml = '', colspan = 1, emptyText = 'No data available.', retryAction } = {}) {
+  const body = document.getElementById(bodyId);
+  if (state === 'loading') {
+    body.innerHTML = `<tr><td colspan="${colspan}">${loadingSkeleton(3)}</td></tr>`;
+    return;
+  }
+  if (state === 'error') {
+    body.innerHTML = `<tr><td colspan="${colspan}">${errorState('请检查网络后重试。', retryAction)}</td></tr>`;
+    body.querySelectorAll('[data-error-retry]').forEach(btn => {
+      btn.onclick = () => retryHandlers[btn.dataset.errorRetry]?.();
+    });
+    return;
+  }
+  body.innerHTML = rowsHtml || `<tr><td colspan="${colspan}">${emptyState(emptyText)}</td></tr>`;
+}
+
+const retryHandlers = {
+  pets: () => refreshPets(),
+  applications: () => refreshApplications(),
+  adoptions: () => refreshAdoptions(),
+  followups: () => refreshFollowups(),
+  medical: () => refreshMedical(),
+  volunteers: () => refreshVolunteers()
+};
 
 function renderDashboard(state) {
   const total = state.pets.length;
@@ -350,10 +466,11 @@ function renderPets(state) {
   const st = document.getElementById('pet-status-filter').value;
   const sp = document.getElementById('pet-species-filter').value;
   const filtered = state.pets.filter(p => (!q || p.name.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q)) && (!st || p.status===st) && (!sp || p.species===sp));
-  document.getElementById('pet-tbody').innerHTML = filtered.length ? filtered.map((p) => `<tr>
+  const rows = filtered.map((p) => `<tr>
     <td>${p.id}</td><td><strong>${esc(p.name)}</strong></td><td>${esc(p.species)}</td><td>${esc(p.breed)}</td>
     <td>${statusBadge(p.status)}</td><td>${p.intake}</td>
-    <td><button class="btn" data-pet-id="${esc(p.id)}">View</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty">No pets found.</td></tr>`;
+    <td><button class="btn" data-pet-id="${esc(p.id)}">View</button></td></tr>`).join('');
+  renderTableState('pet-tbody', { state: requestState.pets, rowsHtml: rows, colspan: 7, emptyText: 'No pets found.', retryAction: 'pets' });
 
   document.querySelectorAll('[data-pet-id]').forEach(btn => btn.onclick = () => openPetDetail(btn.dataset.petId));
 }
@@ -375,12 +492,13 @@ function renderApplications(state) {
   const q = document.getElementById('app-search').value.toLowerCase();
   const st = document.getElementById('app-status-filter').value;
   const list = state.applications.filter(a => (!q || a.applicant.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q)) && (!st || a.status === st));
-  document.getElementById('app-tbody').innerHTML = list.length ? list.map(a => {
+  const rows = list.map(a => {
     const action = a.status === 'Pending'
       ? `<button class="btn" data-app-view="${esc(a.id)}">View</button> <button class="btn btn-success" data-app-review="${esc(a.id)}">Review</button>`
       : `<button class="btn" data-app-view="${esc(a.id)}">View</button>`;
     return `<tr><td>${a.id}</td><td><strong>${esc(a.applicant)}</strong></td><td>${esc(a.pet)}</td><td>${a.date}</td><td>${statusBadge(a.status)}</td><td>${action}</td></tr>`;
-  }).join('') : `<tr><td colspan="6" class="empty">No applications found.</td></tr>`;
+  }).join('');
+  renderTableState('app-tbody', { state: requestState.applications, rowsHtml: rows, colspan: 6, emptyText: 'No applications found.', retryAction: 'applications' });
 
   document.querySelectorAll('[data-app-view]').forEach(btn => btn.onclick = () => openAppDetail(btn.dataset.appView));
   document.querySelectorAll('[data-app-review]').forEach(btn => btn.onclick = () => openReviewModal(btn.dataset.appReview));
@@ -416,7 +534,17 @@ function openReviewModal(applicationId) {
 
 async function submitReview(applicationId, decision) {
   const note = document.getElementById('review-note').value.trim();
-  if (!note) return showToast('Decision note is required.', 'danger');
+  const noteEl = document.getElementById('review-note');
+  const hasErrors = reportFormErrors([{ el: noteEl, invalid: !note, message: 'Decision note is required.' }]);
+  if (hasErrors) return;
+  const confirmed = await confirmAction({
+    title: '确认提交审核',
+    message: `确定将申请 ${applicationId} 标记为 ${decision} 吗？`,
+    confirmText: decision,
+    danger: decision === 'Rejected',
+    doubleConfirm: decision === 'Rejected'
+  });
+  if (!confirmed) return;
 
   const snapshot = structuredClone(uiState.applications);
   uiState.applications = uiState.applications.map(app => app.id === applicationId ? { ...app, status: decision, decision: note, reviewer: 'Staff (you)' } : app);
@@ -432,7 +560,7 @@ async function submitReview(applicationId, decision) {
   } catch (error) {
     uiState.applications = snapshot;
     renderApplications(uiState);
-    showToast(`Review failed: ${error.message}`, 'danger');
+    showActionableError(error, { retry: () => submitReview(applicationId, decision), context: '审核提交失败' });
   }
 }
 
@@ -456,11 +584,23 @@ function openNewApplicationModal() {
 }
 
 async function submitNewApplication() {
-  const applicant = document.getElementById('new-applicant').value.trim();
-  const petId = document.getElementById('new-app-pet').value;
-  const housing = document.getElementById('new-app-housing').value;
-  const reason = document.getElementById('new-app-reason').value.trim();
-  if (!applicant || !petId || !housing || !reason) return showToast('Please fill in all fields.', 'danger');
+  const applicantEl = document.getElementById('new-applicant');
+  const petEl = document.getElementById('new-app-pet');
+  const housingEl = document.getElementById('new-app-housing');
+  const reasonEl = document.getElementById('new-app-reason');
+  const applicant = applicantEl.value.trim();
+  const petId = petEl.value;
+  const housing = housingEl.value;
+  const reason = reasonEl.value.trim();
+  const hasErrors = reportFormErrors([
+    { el: applicantEl, invalid: !applicant, message: 'Applicant is required.' },
+    { el: petEl, invalid: !petId, message: 'Pet selection is required.' },
+    { el: housingEl, invalid: !housing, message: 'Housing type is required.' },
+    { el: reasonEl, invalid: !reason, message: 'Reason is required.' }
+  ]);
+  if (hasErrors) return;
+  const confirmed = await confirmAction({ title: '确认提交申请', message: '提交后将锁定宠物状态为 Reserved，是否继续？', confirmText: 'Submit' });
+  if (!confirmed) return;
 
   const optimisticId = `TEMP-${Date.now()}`;
   const pet = uiState.pets.find(item => item.id === petId);
@@ -481,16 +621,17 @@ async function submitNewApplication() {
     uiState.pets = snapshot.pets;
     renderApplications(uiState);
     renderPets(uiState);
-    showToast(`Create failed: ${error.message}`, 'danger');
+    showActionableError(error, { retry: () => submitNewApplication(), context: '创建申请失败' });
   }
 }
 
 function renderAdoptions(state) {
   const body = document.getElementById('adoption-tbody');
-  body.innerHTML = state.adoptions.length ? state.adoptions.map((a) => `<tr>
+  const rows = state.adoptions.map((a) => `<tr>
     <td>${a.id}</td><td>${a.applicationId}</td><td><strong>${esc(a.applicant)}</strong></td><td>${esc(a.pet)}</td><td>${a.adoptionDate}</td><td>$${a.fee}</td>
     <td><button class="btn" data-view-adoption="${esc(a.id)}">View</button></td>
-  </tr>`).join('') : `<tr><td colspan="7" class="empty">No adoption records yet.</td></tr>`;
+  </tr>`).join('');
+  renderTableState('adoption-tbody', { state: requestState.adoptions, rowsHtml: rows, colspan: 7, emptyText: 'No adoption records yet.', retryAction: 'adoptions' });
   document.querySelectorAll('[data-view-adoption]').forEach(btn => btn.onclick = () => {
     const a = uiState.adoptions.find(item => item.id === btn.dataset.viewAdoption);
     if (!a) return;
@@ -513,14 +654,31 @@ function openNewAdoptionModal() {
 }
 
 async function submitNewAdoption() {
-  const appId = document.getElementById('adp-app').value;
-  const date = document.getElementById('adp-date').value;
-  const fee = Number(document.getElementById('adp-fee').value);
-  const note = document.getElementById('adp-note').value.trim() || '—';
-  if (!appId || !date || Number.isNaN(fee)) return showToast('Please complete all required fields.', 'danger');
+  const appEl = document.getElementById('adp-app');
+  const dateEl = document.getElementById('adp-date');
+  const feeEl = document.getElementById('adp-fee');
+  const noteEl = document.getElementById('adp-note');
+  const appId = appEl.value;
+  const date = dateEl.value;
+  const fee = Number(feeEl.value);
+  const note = noteEl.value.trim() || '—';
+  const hasErrors = reportFormErrors([
+    { el: appEl, invalid: !appId, message: 'Approved application is required.' },
+    { el: dateEl, invalid: !date, message: 'Adoption date is required.' },
+    { el: feeEl, invalid: Number.isNaN(fee), message: 'Valid fee is required.' }
+  ]);
+  if (hasErrors) return;
 
   const app = uiState.applications.find(item => item.id === appId);
   if (!app) return showToast('Application not found.', 'danger');
+  const confirmed = await confirmAction({
+    title: '确认创建领养记录',
+    message: '创建后宠物状态将更新为 Adopted，此操作不可逆。',
+    confirmText: 'Create',
+    danger: true,
+    doubleConfirm: true
+  });
+  if (!confirmed) return;
 
   const snapshot = { adoptions: structuredClone(uiState.adoptions), pets: structuredClone(uiState.pets) };
   uiState.adoptions.unshift({ id: `TEMP-${Date.now()}`, applicationId: appId, applicant: app.applicant, pet: app.pet, adoptionDate: date, fee, handoverNote: note });
@@ -540,13 +698,13 @@ async function submitNewAdoption() {
     uiState.pets = snapshot.pets;
     renderAdoptions(uiState);
     renderPets(uiState);
-    showToast(`Create adoption failed: ${error.message}`, 'danger');
+    showActionableError(error, { retry: () => submitNewAdoption(), context: '创建领养失败' });
   }
 }
 
 function renderFollowups(state) {
-  const body = document.getElementById('followup-tbody');
-  body.innerHTML = state.followups.length ? state.followups.map(f => `<tr><td>${f.id}</td><td>${f.adoptionId}</td><td>${f.date}</td><td>${esc(f.type)}</td><td>${statusBadge(f.result)}</td><td>${esc(f.petCondition)}</td></tr>`).join('') : `<tr><td colspan="6" class="empty">No follow-ups yet.</td></tr>`;
+  const rows = state.followups.map(f => `<tr><td>${f.id}</td><td>${f.adoptionId}</td><td>${f.date}</td><td>${esc(f.type)}</td><td>${statusBadge(f.result)}</td><td>${esc(f.petCondition)}</td></tr>`).join('');
+  renderTableState('followup-tbody', { state: requestState.followups, rowsHtml: rows, colspan: 6, emptyText: 'No follow-ups yet.', retryAction: 'followups' });
 }
 
 function openNewFollowupModal() {
@@ -564,12 +722,25 @@ function openNewFollowupModal() {
 }
 
 async function submitNewFollowup() {
-  const adoptionId = document.getElementById('fu-adoption').value;
-  const date = document.getElementById('fu-date').value;
-  const type = document.getElementById('fu-type').value;
-  const petCondition = document.getElementById('fu-condition').value.trim();
-  const feedback = document.getElementById('fu-feedback').value.trim();
-  if (!adoptionId || !date || !petCondition || !feedback) return showToast('Please fill all follow-up fields.', 'danger');
+  const adoptionEl = document.getElementById('fu-adoption');
+  const dateEl = document.getElementById('fu-date');
+  const typeEl = document.getElementById('fu-type');
+  const conditionEl = document.getElementById('fu-condition');
+  const feedbackEl = document.getElementById('fu-feedback');
+  const adoptionId = adoptionEl.value;
+  const date = dateEl.value;
+  const type = typeEl.value;
+  const petCondition = conditionEl.value.trim();
+  const feedback = feedbackEl.value.trim();
+  const hasErrors = reportFormErrors([
+    { el: adoptionEl, invalid: !adoptionId, message: 'Adoption ID is required.' },
+    { el: dateEl, invalid: !date, message: 'Follow-up date is required.' },
+    { el: conditionEl, invalid: !petCondition, message: 'Pet condition is required.' },
+    { el: feedbackEl, invalid: !feedback, message: 'Adopter feedback is required.' }
+  ]);
+  if (hasErrors) return;
+  const confirmed = await confirmAction({ title: '确认保存回访', message: '确定写入本次回访记录吗？', confirmText: 'Save' });
+  if (!confirmed) return;
 
   const snapshot = structuredClone(uiState.followups);
   uiState.followups.unshift({ id: `TEMP-${Date.now()}`, adoptionId, date, type, petCondition, feedback, result: 'Completed', staffNote: 'Pending sync' });
@@ -584,21 +755,25 @@ async function submitNewFollowup() {
   } catch (error) {
     uiState.followups = snapshot;
     renderFollowups(uiState);
-    showToast(`Create follow-up failed: ${error.message}`, 'danger');
+    showActionableError(error, { retry: () => submitNewFollowup(), context: '创建回访失败' });
   }
 }
 
 function renderMedical(state) {
-  document.getElementById('medical-tbody').innerHTML = state.medical.map(m => `<tr><td>${esc(m.pet)}</td><td>${m.date}</td><td>${esc(m.type)}</td><td>${esc(m.vet)}</td></tr>`).join('');
-  document.getElementById('vax-tbody').innerHTML = state.vaccinations.map(v => {
+  const medicalRows = state.medical.map(m => `<tr><td>${esc(m.pet)}</td><td>${m.date}</td><td>${esc(m.type)}</td><td>${esc(m.vet)}</td></tr>`).join('');
+  renderTableState('medical-tbody', { state: requestState.medical, rowsHtml: medicalRows, colspan: 4, emptyText: 'No medical records.', retryAction: 'medical' });
+  const vaxRows = state.vaccinations.map(v => {
     const danger = v.due <= new Date().toISOString().slice(0,10);
     return `<tr><td>${esc(v.pet)}</td><td>${esc(v.vaccine)}</td><td style="color:${danger ? '#a23232' : 'inherit'}">${v.due}</td></tr>`;
   }).join('');
+  renderTableState('vax-tbody', { state: requestState.medical, rowsHtml: vaxRows, colspan: 3, emptyText: 'No vaccination plans.', retryAction: 'medical' });
 }
 
 function renderVolunteers(state) {
-  document.getElementById('volunteer-tbody').innerHTML = state.volunteers.map(v => `<tr><td><strong>${esc(v.name)}</strong></td><td>${esc(v.email)}</td><td>${v.joined}</td><td>${statusBadge(v.status)}</td><td>${esc(v.pets)}</td></tr>`).join('');
-  document.getElementById('assign-tbody').innerHTML = state.assignments.map(a => `<tr><td>${a.id}</td><td>${esc(a.volunteer)}</td><td>${esc(a.pet)}</td><td>${esc(a.shift)}</td><td>${esc(a.task)}</td><td>${statusBadge(a.status)}</td></tr>`).join('');
+  const volunteerRows = state.volunteers.map(v => `<tr><td><strong>${esc(v.name)}</strong></td><td>${esc(v.email)}</td><td>${v.joined}</td><td>${statusBadge(v.status)}</td><td>${esc(v.pets)}</td></tr>`).join('');
+  renderTableState('volunteer-tbody', { state: requestState.volunteers, rowsHtml: volunteerRows, colspan: 5, emptyText: 'No volunteers.', retryAction: 'volunteers' });
+  const assignmentRows = state.assignments.map(a => `<tr><td>${a.id}</td><td>${esc(a.volunteer)}</td><td>${esc(a.pet)}</td><td>${esc(a.shift)}</td><td>${esc(a.task)}</td><td>${statusBadge(a.status)}</td></tr>`).join('');
+  renderTableState('assign-tbody', { state: requestState.volunteers, rowsHtml: assignmentRows, colspan: 6, emptyText: 'No assignments today.', retryAction: 'volunteers' });
 }
 
 function openModal(html) {
@@ -620,33 +795,87 @@ function renderAll(){
 }
 
 async function refreshPets() {
-  uiState.pets = normalizeList(await petsApi.listPets(), 'pets');
-  renderDashboard(uiState);
+  requestState.pets = 'loading';
   renderPets(uiState);
+  try {
+    uiState.pets = normalizeList(await petsApi.listPets(), 'pets');
+    requestState.pets = 'success';
+    renderDashboard(uiState);
+    renderPets(uiState);
+  } catch (error) {
+    requestState.pets = 'error';
+    renderPets(uiState);
+    throw error;
+  }
 }
 async function refreshApplications() {
-  uiState.applications = normalizeList(await applicationsApi.listApplications(), 'applications');
-  renderDashboard(uiState);
+  requestState.applications = 'loading';
   renderApplications(uiState);
+  try {
+    uiState.applications = normalizeList(await applicationsApi.listApplications(), 'applications');
+    requestState.applications = 'success';
+    renderDashboard(uiState);
+    renderApplications(uiState);
+  } catch (error) {
+    requestState.applications = 'error';
+    renderApplications(uiState);
+    throw error;
+  }
 }
 async function refreshAdoptions() {
-  uiState.adoptions = normalizeList(await adoptionsApi.listAdoptions(), 'adoptions');
-  renderDashboard(uiState);
+  requestState.adoptions = 'loading';
   renderAdoptions(uiState);
+  try {
+    uiState.adoptions = normalizeList(await adoptionsApi.listAdoptions(), 'adoptions');
+    requestState.adoptions = 'success';
+    renderDashboard(uiState);
+    renderAdoptions(uiState);
+  } catch (error) {
+    requestState.adoptions = 'error';
+    renderAdoptions(uiState);
+    throw error;
+  }
 }
 async function refreshFollowups() {
-  uiState.followups = normalizeList(await followupsApi.listFollowups(), 'followups');
+  requestState.followups = 'loading';
   renderFollowups(uiState);
+  try {
+    uiState.followups = normalizeList(await followupsApi.listFollowups(), 'followups');
+    requestState.followups = 'success';
+    renderFollowups(uiState);
+  } catch (error) {
+    requestState.followups = 'error';
+    renderFollowups(uiState);
+    throw error;
+  }
 }
 async function refreshMedical() {
-  uiState.medical = normalizeList(await medicalApi.listMedicalRecords(), 'medical');
-  uiState.vaccinations = normalizeList(await medicalApi.listVaccinations(), 'vaccinations');
+  requestState.medical = 'loading';
   renderMedical(uiState);
+  try {
+    uiState.medical = normalizeList(await medicalApi.listMedicalRecords(), 'medical');
+    uiState.vaccinations = normalizeList(await medicalApi.listVaccinations(), 'vaccinations');
+    requestState.medical = 'success';
+    renderMedical(uiState);
+  } catch (error) {
+    requestState.medical = 'error';
+    renderMedical(uiState);
+    throw error;
+  }
 }
 async function refreshVolunteers() {
-  uiState.volunteers = normalizeList(await volunteersApi.listVolunteers(), 'volunteers');
-  uiState.assignments = normalizeList(await volunteersApi.listAssignments(), 'assignments');
+  requestState.volunteers = 'loading';
   renderVolunteers(uiState);
+  try {
+    uiState.volunteers = normalizeList(await volunteersApi.listVolunteers(), 'volunteers');
+    uiState.assignments = normalizeList(await volunteersApi.listAssignments(), 'assignments');
+    requestState.volunteers = 'success';
+    renderVolunteers(uiState);
+  } catch (error) {
+    requestState.volunteers = 'error';
+    renderVolunteers(uiState);
+    throw error;
+  }
 }
 
 async function initializeData() {
@@ -660,7 +889,7 @@ async function initializeData() {
       refreshVolunteers()
     ]);
   } catch (error) {
-    showToast(`Initial data load failed: ${error.message}`, 'danger');
+    showActionableError(error, { retry: () => initializeData(), context: '初始化加载失败' });
   }
 }
 
@@ -678,7 +907,15 @@ document.getElementById('app-status-filter').addEventListener('change', () => re
 document.getElementById('btn-new-app').onclick = openNewApplicationModal;
 document.getElementById('btn-new-adoption').onclick = openNewAdoptionModal;
 document.getElementById('btn-new-followup').onclick = openNewFollowupModal;
-document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+document.getElementById('modal-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'modal-overlay') {
+    closeModal();
+    if (activeConfirmResolver) {
+      activeConfirmResolver(false);
+      activeConfirmResolver = null;
+    }
+  }
+});
 
 window.addEventListener('keydown', (e) => {
   if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
