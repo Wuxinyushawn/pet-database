@@ -287,6 +287,7 @@ import { createMedicalService } from './services/medical.js';
 import { createVolunteersService } from './services/volunteers.js';
 import { createAuthService } from './services/auth.js';
 import { createAuditService } from './services/audit.js';
+import { permissionsForRole, applyPermissionVisibility } from './services/rbacUi.js';
 
 const apiClient = createApiClient({ baseURL: '/api', timeout: 10000 });
 const petsApi = createPetsService(apiClient);
@@ -297,12 +298,6 @@ const medicalApi = createMedicalService(apiClient);
 const volunteersApi = createVolunteersService(apiClient);
 const authApi = createAuthService(apiClient);
 const auditApi = createAuditService(apiClient);
-
-const ROLE_PERMISSIONS = {
-  admin: ['applications:create','applications:review','adoptions:create','followups:create','audit:read'],
-  staff: ['applications:create','applications:review','adoptions:create','followups:create','audit:read'],
-  volunteer_coordinator: ['followups:create','audit:read']
-};
 
 const ENUMS = {
   petStatus: {
@@ -416,7 +411,7 @@ function nextTempId(prefix) {
 
 function getPermissions() {
   const role = uiState.authUser?.role;
-  return new Set(ROLE_PERMISSIONS[role] || []);
+  return permissionsForRole(role);
 }
 
 function can(permission) {
@@ -424,12 +419,7 @@ function can(permission) {
 }
 
 function applyRoleBasedUi() {
-  document.querySelectorAll('[data-perm-view]').forEach((el) => {
-    el.classList.toggle('hidden', !can(el.dataset.permView));
-  });
-  document.querySelectorAll('[data-perm-action]').forEach((el) => {
-    el.classList.toggle('hidden', !can(el.dataset.permAction));
-  });
+  applyPermissionVisibility({ root: document, permissions: getPermissions() });
   document.getElementById('auth-user').textContent = uiState.authUser
     ? `${uiState.authUser.username} (${uiState.authUser.role})`
     : 'Not logged in';

@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import json
 import os
 import sqlite3
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Generator
@@ -17,6 +14,9 @@ from typing import Any, Generator
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+
+from audit_utils import ensure_audit_tables, write_audit_log, write_status_audit_log
+from security import ROLE_PERMISSIONS, USER_STORE, create_session_token, verify_session_token
 
 DB_PATH = Path(__file__).parent.parent / "pet_database.db"
 SESSION_SECRET = os.getenv("PET_API_SESSION_SECRET", "pet-db-dev-secret-change-me")
@@ -91,36 +91,7 @@ def _normalize_pet_status(value: str) -> str:
 
 def _ensure_audit_tables() -> None:
     with db_session(write=True) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS AUDIT_LOG (
-                audit_id INTEGER PRIMARY KEY,
-                actor_username VARCHAR(100) NOT NULL,
-                actor_role VARCHAR(50) NOT NULL,
-                action VARCHAR(100) NOT NULL,
-                entity VARCHAR(100) NOT NULL,
-                entity_id VARCHAR(100),
-                before_state TEXT,
-                after_state TEXT,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS STATUS_AUDIT_LOG (
-                audit_id INTEGER PRIMARY KEY,
-                entity_type TEXT NOT NULL,
-                entity_id INTEGER NOT NULL,
-                field_name TEXT NOT NULL,
-                old_value TEXT,
-                new_value TEXT NOT NULL,
-                changed_at TEXT NOT NULL,
-                changed_by TEXT,
-                note TEXT
-            )
-            """
-        )
+        ensure_audit_tables(conn)
 
 
 @app.on_event("startup")
@@ -148,59 +119,6 @@ class SessionUser(BaseModel):
     role: str
 
 
-USER_STORE: dict[str, dict[str, str]] = {
-    "admin": {"password": "admin123", "role": "admin"},
-    "staff": {"password": "staff123", "role": "staff"},
-    "coordinator": {"password": "coord123", "role": "volunteer_coordinator"},
-}
-
-ROLE_PERMISSIONS: dict[str, set[str]] = {
-    "admin": {"applications:create", "applications:review", "adoptions:create", "followups:create", "audit:read"},
-    "staff": {"applications:create", "applications:review", "adoptions:create", "followups:create", "audit:read"},
-    "volunteer_coordinator": {"followups:create", "audit:read"},
-}
-
-
-def _b64url(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
-
-
-def _b64url_decode(data: str) -> bytes:
-    pad = "=" * (-len(data) % 4)
-    return base64.urlsafe_b64decode((data + pad).encode("ascii"))
-
-
-def _create_session_token(user: SessionUser) -> str:
-    payload = {
-        "sub": user.username,
-        "role": user.role,
-        "exp": int((datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)).timestamp()),
-    }
-    body = _b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
-    signature = hmac.new(SESSION_SECRET.encode("utf-8"), body.encode("utf-8"), hashlib.sha256).digest()
-    return f"{body}.{_b64url(signature)}"
-
-
-def _verify_session_token(token: str) -> SessionUser:
-    try:
-        body, sig = token.split(".", 1)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session token") from exc
-    expected_sig = hmac.new(SESSION_SECRET.encode("utf-8"), body.encode("utf-8"), hashlib.sha256).digest()
-    if not hmac.compare_digest(_b64url(expected_sig), sig):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session signature")
-    payload = json.loads(_b64url_decode(body))
-    if int(payload.get("exp", 0)) < int(datetime.now(timezone.utc).timestamp()):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
-    return SessionUser(username=payload["sub"], role=payload["role"])
-
-
-def get_current_user(authorization: str | None = Header(default=None)) -> SessionUser:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
-    return _verify_session_token(authorization.removeprefix("Bearer ").strip())
-
-
 def require_permission(permission: str):
     def _check(user: SessionUser = Depends(get_current_user)) -> SessionUser:
         if permission not in ROLE_PERMISSIONS.get(user.role, set()):
@@ -220,25 +138,16 @@ def _audit_log(
     before_state: dict[str, Any] | None,
     after_state: dict[str, Any] | None,
 ) -> None:
-    audit_id = _next_id(conn, "AUDIT_LOG", "audit_id")
-    conn.execute(
-        """
-        INSERT INTO AUDIT_LOG (
-            audit_id, actor_username, actor_role, action, entity, entity_id,
-            before_state, after_state, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            audit_id,
-            actor.username,
-            actor.role,
-            action,
-            entity,
-            entity_id,
-            json.dumps(before_state, ensure_ascii=False) if before_state is not None else None,
-            json.dumps(after_state, ensure_ascii=False) if after_state is not None else None,
-            datetime.now(timezone.utc).isoformat(),
-        ),
+    write_audit_log(
+        conn,
+        next_id=_next_id(conn, "AUDIT_LOG", "audit_id"),
+        actor_username=actor.username,
+        actor_role=actor.role,
+        action=action,
+        entity=entity,
+        entity_id=entity_id,
+        before_state=before_state,
+        after_state=after_state,
     )
 
 
@@ -253,17 +162,16 @@ def _status_audit_log(
     changed_by: str | None,
     note: str | None,
 ) -> None:
-    if old_value == new_value:
-        return
-    audit_id = _next_id(conn, "STATUS_AUDIT_LOG", "audit_id")
-    conn.execute(
-        """
-        INSERT INTO STATUS_AUDIT_LOG (
-            audit_id, entity_type, entity_id, field_name, old_value, new_value,
-            changed_at, changed_by, note
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (audit_id, entity_type, entity_id, field_name, old_value, new_value, date.today().isoformat(), changed_by, note),
+    write_status_audit_log(
+        conn,
+        next_id=_next_id(conn, "STATUS_AUDIT_LOG", "audit_id"),
+        entity_type=entity_type,
+        entity_id=entity_id,
+        field_name=field_name,
+        old_value=old_value,
+        new_value=new_value,
+        changed_by=changed_by,
+        note=note,
     )
 
 
@@ -305,7 +213,7 @@ def login(payload: LoginBody) -> dict[str, Any]:
     if not user or user["password"] != payload.password:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
     session_user = SessionUser(username=payload.username, role=user["role"])
-    return {"data": {"token": _create_session_token(session_user), "user": session_user.model_dump(), "expires_in_hours": SESSION_TTL_HOURS}}
+    return {"data": {"token": create_session_token(username=session_user.username, role=session_user.role, secret=SESSION_SECRET, ttl_hours=SESSION_TTL_HOURS), "user": session_user.model_dump(), "expires_in_hours": SESSION_TTL_HOURS}}
 
 
 @app.get("/auth/me")
