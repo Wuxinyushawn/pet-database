@@ -6,604 +6,651 @@
 <title>PawTrack — Adoption Center System</title>
 <style>
 :root {
-  --color-background-primary: #ffffff;
-  --color-background-secondary: #f5f4f0;
-  --color-background-tertiary: #eeede8;
-  --color-background-info: #e6f1fb;
-  --color-background-success: #eaf3de;
-  --color-background-warning: #faeeda;
-  --color-background-danger: #fcebeb;
-  --color-text-primary: #1a1a18;
-  --color-text-secondary: #6b6a65;
-  --color-text-tertiary: #9e9d98;
-  --color-text-info: #185fa5;
-  --color-text-success: #3b6d11;
-  --color-text-warning: #854f0b;
-  --color-text-danger: #a32d2d;
-  --color-border-tertiary: rgba(0,0,0,0.12);
-  --color-border-secondary: rgba(0,0,0,0.22);
-  --color-border-primary: rgba(0,0,0,0.32);
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'SFMono-Regular', Consolas, monospace;
-  --border-radius-md: 8px;
-  --border-radius-lg: 12px;
-  --border-radius-xl: 16px;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f5f2;
+  --bg-tertiary: #efeee8;
+  --text-primary: #1f1f1b;
+  --text-secondary: #6b6a63;
+  --border: rgba(0,0,0,0.14);
+  --brand: #b47011;
+  --success: #3c6e11;
+  --warn: #8a5310;
+  --danger: #a23232;
+  --info: #1d5fa5;
+  --radius: 10px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-background-primary: #1e1e1c;
-    --color-background-secondary: #2a2a27;
-    --color-background-tertiary: #242422;
-    --color-background-info: #042c53;
-    --color-background-success: #173404;
-    --color-background-warning: #412402;
-    --color-background-danger: #501313;
-    --color-text-primary: #f0ede6;
-    --color-text-secondary: #a8a6a0;
-    --color-text-tertiary: #6e6c67;
-    --color-text-info: #85b7eb;
-    --color-text-success: #97c459;
-    --color-text-warning: #ef9f27;
-    --color-text-danger: #f09595;
-    --color-border-tertiary: rgba(255,255,255,0.12);
-    --color-border-secondary: rgba(255,255,255,0.22);
-    --color-border-primary: rgba(255,255,255,0.32);
+    --bg-primary: #1d1d1b;
+    --bg-secondary: #292926;
+    --bg-tertiary: #232320;
+    --text-primary: #ece8df;
+    --text-secondary: #aaa79f;
+    --border: rgba(255,255,255,0.14);
   }
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:var(--color-background-tertiary)}
-body{font-family:var(--font-sans);color:var(--color-text-primary)}
-code{font-family:var(--font-mono);font-size:0.9em;background:var(--color-background-secondary);padding:1px 5px;border-radius:4px}
+html,body{height:100%;background:var(--bg-tertiary);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text-primary)}
+button,input,select,textarea{font:inherit}
 .app{display:flex;height:100vh;overflow:hidden}
-.sidebar{width:210px;flex-shrink:0;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);padding:1.25rem 0;display:flex;flex-direction:column}
-.sidebar-logo{padding:0 1.25rem 1.25rem;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:0.75rem}
-.sidebar-logo p{font-size:13px;color:var(--color-text-secondary);margin-top:2px}
-.sidebar-logo h2{font-size:15px;font-weight:500}
-.nav-item{display:flex;align-items:center;gap:10px;padding:8px 1.25rem;font-size:14px;cursor:pointer;color:var(--color-text-secondary);transition:background 0.15s;user-select:none}
-.nav-item:hover{background:var(--color-background-primary);color:var(--color-text-primary)}
-.nav-item.active{background:var(--color-background-primary);color:var(--color-text-primary);font-weight:500;border-right:2px solid #BA7517}
-.nav-icon{width:16px;height:16px;flex-shrink:0}
-.main{flex:1;overflow-y:auto;padding:1.5rem 2rem;background:var(--color-background-tertiary)}
-.page{display:none}.page.active{display:block}
-.page-title{font-size:20px;font-weight:500;margin-bottom:1.5rem}
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:1.5rem}
-.stat-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:1rem}
-.stat-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:6px}
-.stat-value{font-size:22px;font-weight:500}
-.stat-sub{font-size:12px;color:var(--color-text-secondary);margin-top:4px}
-.section-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:1.25rem}
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
-.section-title{font-size:14px;font-weight:500}
-.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
-.toolbar input,.toolbar select{font-size:13px;padding:6px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary)}
-.toolbar input{min-width:190px}
+.sidebar{width:230px;background:var(--bg-secondary);border-right:1px solid var(--border);padding:18px 0;display:flex;flex-direction:column;gap:8px}
+.logo{padding:0 18px 14px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.logo h1{font-size:17px}
+.logo p{font-size:12px;color:var(--text-secondary)}
+.nav-item{padding:9px 18px;font-size:14px;color:var(--text-secondary);display:flex;gap:8px;align-items:center;cursor:pointer;border-right:2px solid transparent}
+.nav-item:hover{background:var(--bg-primary);color:var(--text-primary)}
+.nav-item.active{background:var(--bg-primary);color:var(--text-primary);border-right-color:var(--brand);font-weight:600}
+.main{flex:1;overflow:auto;padding:24px;background:var(--bg-tertiary)}
+.page{display:none}
+.page.active{display:block}
+.page-title{font-size:22px;font-weight:650;margin-bottom:16px}
+.section{background:var(--bg-primary);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.section-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
+.section-title{font-size:14px;font-weight:600}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--bg-secondary);border-radius:var(--radius);padding:12px}
+.card .k{font-size:12px;color:var(--text-secondary);margin-bottom:5px}
+.card .v{font-size:24px;font-weight:700}
+.card .s{font-size:12px;color:var(--text-secondary)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.input,.select,.textarea{border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);padding:7px 10px;font-size:13px}
+.input{min-width:210px}
+.textarea{width:100%;min-height:90px;resize:vertical}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;padding:8px 10px;font-weight:500;font-size:12px;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary)}
-td{padding:9px 10px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);vertical-align:middle}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:var(--color-background-secondary)}
-.badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:500}
-.badge-available{background:#EAF3DE;color:#3B6D11}
-.badge-reserved{background:#FAEEDA;color:#854F0B}
-.badge-adopted{background:#E6F1FB;color:#185FA5}
-.badge-hold{background:#FCEBEB;color:#A32D2D}
-.badge-pending{background:#FAEEDA;color:#854F0B}
-.badge-approved{background:#EAF3DE;color:#3B6D11}
-.badge-rejected{background:#FCEBEB;color:#A32D2D}
-.badge-active{background:#EAF3DE;color:#3B6D11}
-.badge-inactive{background:#f1efe8;color:#5f5e5a}
-.btn-sm{font-size:12px;padding:4px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);cursor:pointer}
-.btn-sm:hover{background:var(--color-background-secondary)}
-.btn-approve{font-size:12px;padding:4px 10px;border:0.5px solid #639922;border-radius:var(--border-radius-md);background:transparent;color:#3B6D11;cursor:pointer}
-.btn-approve:hover{background:#EAF3DE}
-.btn-reject{font-size:12px;padding:4px 10px;border:0.5px solid #A32D2D;border-radius:var(--border-radius-md);background:transparent;color:#A32D2D;cursor:pointer}
-.btn-reject:hover{background:#FCEBEB}
-.btn-primary{font-size:13px;padding:7px 14px;border:0.5px solid #BA7517;border-radius:var(--border-radius-md);background:transparent;color:#854F0B;cursor:pointer;font-weight:500}
-.btn-primary:hover{background:#FAEEDA}
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.activity-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
-.activity-item:last-child{border-bottom:none}
-.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
-.dot-green{background:#639922}.dot-amber{background:#BA7517}.dot-blue{background:#378ADD}
-.activity-text{font-size:13px;line-height:1.5}
-.activity-time{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
-.avatar{width:32px;height:32px;border-radius:50%;background:#FAEEDA;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:#854F0B;flex-shrink:0}
-
-/* ── Overlay: fixed fullscreen dim layer ── */
-.overlay{
-  display:none;
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.45);
-  z-index:100;
-  align-items:center;
-  justify-content:center;
-}
+th{padding:8px 9px;font-size:12px;text-align:left;color:var(--text-secondary);border-bottom:1px solid var(--border)}
+td{padding:10px 9px;border-bottom:1px solid var(--border);vertical-align:top}
+tr:hover td{background:var(--bg-secondary)}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
+.b-available{background:#e7f3da;color:#335f0f}
+.b-reserved{background:#faedd7;color:#7a4a08}
+.b-adopted{background:#e5f0fb;color:#1a5c9f}
+.b-hold{background:#fce8e8;color:#9a2f2f}
+.b-pending{background:#faedd7;color:#7a4a08}
+.b-approved{background:#e7f3da;color:#335f0f}
+.b-rejected{background:#fce8e8;color:#9a2f2f}
+.b-done{background:#e7f3da;color:#335f0f}
+.b-active{background:#e7f3da;color:#335f0f}
+.b-inactive{background:#ece8df;color:#555249}
+.btn{border:1px solid var(--border);background:transparent;color:var(--text-primary);padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer}
+.btn:hover{background:var(--bg-secondary)}
+.btn-primary{border-color:var(--brand);color:var(--warn);font-weight:600}
+.btn-success{border-color:#5f9421;color:var(--success)}
+.btn-danger{border-color:var(--danger);color:var(--danger)}
+.kbd{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:1px 6px;font-size:12px}
+.empty{padding:18px;color:var(--text-secondary);text-align:center}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.48);display:none;align-items:center;justify-content:center;z-index:50}
 .overlay.open{display:flex}
-
-/* ── Modal box sits on top of the dim layer ── */
-.modal-box{
-  background:var(--color-background-primary);
-  border:0.5px solid var(--color-border-secondary);
-  border-radius:var(--border-radius-lg);
-  padding:1.5rem;
-  width:420px;
-  max-height:85vh;
-  overflow-y:auto;
-  position:relative;
-  box-shadow:0 8px 32px rgba(0,0,0,0.18);
-}
-.modal-close{position:absolute;right:1rem;top:1rem;cursor:pointer;font-size:16px;color:var(--color-text-secondary);background:none;border:none}
-.modal-title{font-size:16px;font-weight:500;margin-bottom:1.25rem}
-.field-row{display:flex;justify-content:space-between;align-items:flex-start;padding:7px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px}
-.field-row:last-child{border-bottom:none}
-.field-label{color:var(--color-text-secondary);flex-shrink:0;margin-right:12px}
-.form-group{margin-bottom:1rem}
-.form-label{font-size:13px;color:var(--color-text-secondary);margin-bottom:5px;display:block}
-.form-control{width:100%;font-size:13px;padding:8px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary)}
-.form-control:focus{outline:none;border-color:var(--color-border-primary)}
-textarea.form-control{resize:vertical;min-height:80px;line-height:1.5}
-.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem;padding-top:1rem;border-top:0.5px solid var(--color-border-tertiary)}
-.hint-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;font-size:12px;color:var(--color-text-secondary);margin-bottom:1rem}
-.review-summary{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;margin-bottom:1rem;font-size:13px}
-
-/* ── Toast ── */
-.toast{
-  position:fixed;
-  bottom:1.5rem;
-  right:1.5rem;
-  background:var(--color-background-primary);
-  border:0.5px solid var(--color-border-secondary);
-  border-radius:var(--border-radius-md);
-  padding:10px 16px;
-  font-size:13px;
-  z-index:200;
-  display:none;
-  box-shadow:0 4px 16px rgba(0,0,0,0.12);
-  max-width:300px;
-}
+.modal{width:min(560px,92vw);max-height:85vh;overflow:auto;background:var(--bg-primary);border:1px solid var(--border);border-radius:14px;padding:16px;position:relative}
+.modal h3{font-size:17px;margin-bottom:10px}
+.modal-close{position:absolute;right:10px;top:10px;background:none;border:none;color:var(--text-secondary);font-size:18px;cursor:pointer}
+.field{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
+.field:last-child{border-bottom:none}
+.field-label{color:var(--text-secondary)}
+.form-row{margin-bottom:10px}
+.form-label{font-size:12px;color:var(--text-secondary);margin-bottom:4px;display:block}
+.form-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:10px;border-top:1px solid var(--border);margin-top:10px}
+.toast{position:fixed;right:16px;bottom:16px;display:none;background:var(--bg-primary);border:1px solid var(--border);border-left:4px solid var(--info);border-radius:8px;padding:10px 14px;z-index:80;max-width:320px;font-size:13px}
 .toast.show{display:block}
-.toast-success{border-left:3px solid #639922;color:#3B6D11}
-.toast-info{border-left:3px solid #378ADD;color:#185FA5}
+.list{display:flex;flex-direction:column;gap:9px}
+.activity{display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.dot{width:8px;height:8px;border-radius:50%;margin-top:5px}
+.dot-green{background:#5f9421}.dot-amber{background:#b47011}.dot-blue{background:#337cc8}
+.help{font-size:12px;color:var(--text-secondary)}
+@media (max-width: 1100px) { .grid-4,.grid-2{grid-template-columns:1fr 1fr} }
+@media (max-width: 760px) {
+  .sidebar{display:none}
+  .main{padding:12px}
+  .grid-4,.grid-2{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
-
 <div class="app">
-
-<!-- ── Sidebar ── -->
-<nav class="sidebar">
-  <div class="sidebar-logo">
-    <h2>PawTrack</h2>
-    <p>Adoption Center System</p>
-  </div>
-  <div class="nav-item active" onclick="showPage('dashboard',this)">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
-    Dashboard
-  </div>
-  <div class="nav-item" onclick="showPage('pets',this)">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="7" r="3" stroke="currentColor" stroke-width="1.2"/><circle cx="3" cy="4" r="1.5" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="4" r="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2 12c0-2 2-3 6-3s6 1 6 3" stroke="currentColor" stroke-width="1.2"/></svg>
-    Pets
-  </div>
-  <div class="nav-item" onclick="showPage('applications',this)">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="12" height="14" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="5" x2="11" y2="5" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="11" x2="8" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>
-    Applications
-  </div>
-  <div class="nav-item" onclick="showPage('medical',this)">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="11" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 3V2M11 3V2" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="6" x2="15" y2="6" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="9" x2="8" y2="12" stroke="currentColor" stroke-width="1.2"/><line x1="6.5" y1="10.5" x2="9.5" y2="10.5" stroke="currentColor" stroke-width="1.2"/></svg>
-    Medical
-  </div>
-  <div class="nav-item" onclick="showPage('volunteers',this)">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.5 2-4 5-4s5 1.5 5 4" stroke="currentColor" stroke-width="1.2"/><circle cx="12" cy="5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M12 9c2 0 3 1 3 2.5" stroke="currentColor" stroke-width="1.2"/></svg>
-    Volunteers
-  </div>
-</nav>
-
-<!-- ── Main content ── -->
-<div class="main">
-
-  <!-- Dashboard -->
-  <div id="page-dashboard" class="page active">
-    <div class="page-title">Dashboard</div>
-    <div class="stat-grid">
-      <div class="stat-card"><div class="stat-label">Total pets</div><div class="stat-value">47</div><div class="stat-sub">in 2 shelters</div></div>
-      <div class="stat-card"><div class="stat-label">Available now</div><div class="stat-value" style="color:#3B6D11">23</div><div class="stat-sub">ready to adopt</div></div>
-      <div class="stat-card"><div class="stat-label">Pending review</div><div class="stat-value" style="color:#854F0B" id="dash-pending-count">3</div><div class="stat-sub">applications</div></div>
-      <div class="stat-card"><div class="stat-label">This month</div><div class="stat-value" style="color:#185FA5">12</div><div class="stat-sub">successful adoptions</div></div>
+  <aside class="sidebar">
+    <div class="logo">
+      <h1>PawTrack</h1>
+      <p>Operations Console</p>
     </div>
-    <div class="two-col">
-      <div class="section-card">
-        <div class="section-header"><span class="section-title">Recent activity</span></div>
-        <div id="activity-feed">
-          <div class="activity-item"><div class="activity-dot dot-green"></div><div><div class="activity-text">Buddy (Golden Retriever) adopted by Chen Wei</div><div class="activity-time">Today, 10:32 AM</div></div></div>
-          <div class="activity-item"><div class="activity-dot dot-amber"></div><div><div class="activity-text">New application for Mochi from Li Fang</div><div class="activity-time">Today, 9:14 AM</div></div></div>
-          <div class="activity-item"><div class="activity-dot dot-blue"></div><div><div class="activity-text">Vaccination record added for Snowball</div><div class="activity-time">Yesterday, 4:45 PM</div></div></div>
-          <div class="activity-item"><div class="activity-dot dot-green"></div><div><div class="activity-text">Follow-up completed for adopted cat Luna</div><div class="activity-time">Yesterday, 2:00 PM</div></div></div>
+    <div class="nav-item active" data-page="dashboard">Dashboard</div>
+    <div class="nav-item" data-page="pets">Pets</div>
+    <div class="nav-item" data-page="applications">Applications</div>
+    <div class="nav-item" data-page="adoptions">Adoptions</div>
+    <div class="nav-item" data-page="followups">Follow-ups</div>
+    <div class="nav-item" data-page="medical">Medical</div>
+    <div class="nav-item" data-page="volunteers">Volunteers</div>
+  </aside>
+
+  <main class="main">
+    <section id="page-dashboard" class="page active">
+      <div class="page-title">Dashboard</div>
+      <div class="grid-4" id="dashboard-cards"></div>
+      <div class="grid-2" style="margin-top:12px">
+        <div class="section">
+          <div class="section-head"><div class="section-title">Recent activity</div></div>
+          <div id="activity-feed" class="list"></div>
+        </div>
+        <div class="section">
+          <div class="section-head"><div class="section-title">Pet status overview</div></div>
+          <table>
+            <thead><tr><th>Status</th><th>Count</th><th>Share</th></tr></thead>
+            <tbody id="pet-status-overview"></tbody>
+          </table>
         </div>
       </div>
-      <div class="section-card">
-        <div class="section-header"><span class="section-title">Pet status overview</span></div>
-        <table><thead><tr><th>Status</th><th>Count</th><th>Share</th></tr></thead><tbody>
-          <tr><td><span class="badge badge-available">Available</span></td><td>23</td><td>49%</td></tr>
-          <tr><td><span class="badge badge-reserved">Reserved</span></td><td>11</td><td>23%</td></tr>
-          <tr><td><span class="badge badge-hold">Medical hold</span></td><td>5</td><td>11%</td></tr>
-          <tr><td><span class="badge badge-adopted">Adopted</span></td><td>8</td><td>17%</td></tr>
-        </tbody></table>
-      </div>
-    </div>
-  </div>
+      <div class="help" style="margin-top:8px">Shortcut: <span class="kbd">/</span> focus current page search · <span class="kbd">g p</span> Pets · <span class="kbd">g a</span> Applications.</div>
+    </section>
 
-  <!-- Pets -->
-  <div id="page-pets" class="page">
-    <div class="page-title">Pet management</div>
-    <div class="section-card">
-      <div class="toolbar">
-        <input type="text" id="pet-search" placeholder="Search by name or breed..." oninput="filterPets()">
-        <select id="pet-status-filter" onchange="filterPets()">
-          <option value="">All statuses</option>
-          <option>Available</option><option>Reserved</option>
-          <option>Medical hold</option><option>Adopted</option>
-        </select>
-        <select id="pet-species-filter" onchange="filterPets()">
-          <option value="">All species</option>
-          <option>Dog</option><option>Cat</option><option>Rabbit</option>
-        </select>
+    <section id="page-pets" class="page">
+      <div class="page-title">Pet management</div>
+      <div class="section">
+        <div class="toolbar">
+          <input class="input" id="pet-search" placeholder="Search by name or breed">
+          <select class="select" id="pet-status-filter"><option value="">All statuses</option><option>Available</option><option>Reserved</option><option>Medical hold</option><option>Adopted</option></select>
+          <select class="select" id="pet-species-filter"><option value="">All species</option><option>Dog</option><option>Cat</option><option>Rabbit</option></select>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Status</th><th>Intake</th><th>Actions</th></tr></thead>
+          <tbody id="pet-tbody"></tbody>
+        </table>
       </div>
-      <table><thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Sex</th><th>Status</th><th>Intake date</th><th></th></tr></thead>
-        <tbody id="pet-tbody"></tbody>
-      </table>
-    </div>
-  </div>
+    </section>
 
-  <!-- Applications -->
-  <div id="page-applications" class="page">
-    <div class="page-title">Adoption applications</div>
-    <div class="section-card">
-      <div class="section-header">
-        <span class="section-title">All applications</span>
-        <button class="btn-primary" onclick="openNewAppModal()">+ New application</button>
+    <section id="page-applications" class="page">
+      <div class="page-title">Adoption applications</div>
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Queue</div>
+          <button class="btn btn-primary" id="btn-new-app">+ New application</button>
+        </div>
+        <div class="toolbar">
+          <input class="input" id="app-search" placeholder="Search applicant or pet">
+          <select class="select" id="app-status-filter"><option value="">All statuses</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Applicant</th><th>Pet</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="app-tbody"></tbody>
+        </table>
       </div>
-      <div class="toolbar">
-        <input type="text" id="app-search" placeholder="Search applicant or pet..." oninput="filterApps()">
-        <select id="app-status-filter" onchange="filterApps()">
-          <option value="">All statuses</option>
-          <option>Pending</option><option>Approved</option><option>Rejected</option>
-        </select>
+    </section>
+
+    <section id="page-adoptions" class="page">
+      <div class="page-title">Adoption records</div>
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Completed/ongoing adoptions</div>
+          <button class="btn btn-primary" id="btn-new-adoption">+ Create from approved app</button>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Application</th><th>Adopter</th><th>Pet</th><th>Date</th><th>Fee</th><th>Actions</th></tr></thead>
+          <tbody id="adoption-tbody"></tbody>
+        </table>
       </div>
-      <table><thead><tr><th>ID</th><th>Applicant</th><th>Pet</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="app-tbody"></tbody>
-      </table>
-    </div>
-  </div>
+    </section>
 
-  <!-- Medical -->
-  <div id="page-medical" class="page">
-    <div class="page-title">Medical records</div>
-    <div class="two-col">
-      <div class="section-card">
-        <div class="section-header"><span class="section-title">Medical visits</span></div>
-        <table><thead><tr><th>Pet</th><th>Date</th><th>Type</th><th>Vet</th></tr></thead><tbody>
-          <tr><td>Buddy</td><td>2026-03-10</td><td>Check-up</td><td>Dr. Wang</td></tr>
-          <tr><td>Mochi</td><td>2026-03-18</td><td>Sterilization</td><td>Dr. Li</td></tr>
-          <tr><td>Rex</td><td>2026-04-02</td><td>Injury</td><td>Dr. Wang</td></tr>
-          <tr><td>Snowball</td><td>2026-04-08</td><td>Check-up</td><td>Dr. Chen</td></tr>
-          <tr><td>Luna</td><td>2026-04-10</td><td>Surgery</td><td>Dr. Li</td></tr>
-        </tbody></table>
+    <section id="page-followups" class="page">
+      <div class="page-title">Post-adoption follow-ups</div>
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Follow-up log</div>
+          <button class="btn btn-primary" id="btn-new-followup">+ Add follow-up</button>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Adoption ID</th><th>Date</th><th>Type</th><th>Result</th><th>Pet condition</th></tr></thead>
+          <tbody id="followup-tbody"></tbody>
+        </table>
       </div>
-      <div class="section-card">
-        <div class="section-header"><span class="section-title">Upcoming vaccinations</span></div>
-        <table><thead><tr><th>Pet</th><th>Vaccine</th><th>Due date</th></tr></thead><tbody>
-          <tr><td>Rex</td><td>Rabies</td><td style="color:#A32D2D">2026-04-15</td></tr>
-          <tr><td>Mochi</td><td>FVRCP</td><td style="color:#854F0B">2026-04-20</td></tr>
-          <tr><td>Buddy</td><td>DHPP</td><td>2026-05-01</td></tr>
-          <tr><td>Snowball</td><td>Bordetella</td><td>2026-05-10</td></tr>
-          <tr><td>Daisy</td><td>Rabies</td><td>2026-05-22</td></tr>
-        </tbody></table>
+    </section>
+
+    <section id="page-medical" class="page">
+      <div class="page-title">Medical & vaccination</div>
+      <div class="grid-2">
+        <div class="section">
+          <div class="section-head"><div class="section-title">Medical visits</div></div>
+          <table>
+            <thead><tr><th>Pet</th><th>Date</th><th>Type</th><th>Vet</th></tr></thead>
+            <tbody id="medical-tbody"></tbody>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-head"><div class="section-title">Upcoming vaccinations</div></div>
+          <table>
+            <thead><tr><th>Pet</th><th>Vaccine</th><th>Due</th></tr></thead>
+            <tbody id="vax-tbody"></tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- Volunteers -->
-  <div id="page-volunteers" class="page">
-    <div class="page-title">Volunteers &amp; care assignments</div>
-    <div class="section-card">
-      <div class="section-header"><span class="section-title">Active volunteers</span></div>
-      <table><thead><tr><th>Volunteer</th><th>Email</th><th>Joined</th><th>Status</th><th>Assigned pets</th></tr></thead><tbody>
-        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">ZS</div>Zhang San</div></td><td>zhangsan@example.com</td><td>2025-06-01</td><td><span class="badge badge-active">Active</span></td><td>Rex, Buddy</td></tr>
-        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">LM</div>Li Ming</div></td><td>liming@example.com</td><td>2025-09-15</td><td><span class="badge badge-active">Active</span></td><td>Mochi</td></tr>
-        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">WF</div>Wang Fang</div></td><td>wangfang@example.com</td><td>2026-01-08</td><td><span class="badge badge-active">Active</span></td><td>Snowball, Luna</td></tr>
-        <tr><td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">CJ</div>Chen Jie</div></td><td>chenjie@example.com</td><td>2026-02-20</td><td><span class="badge badge-inactive">Inactive</span></td><td>—</td></tr>
-      </tbody></table>
-    </div>
-    <div class="section-card">
-      <div class="section-header"><span class="section-title">Today's care assignments</span></div>
-      <table><thead><tr><th>ID</th><th>Volunteer</th><th>Pet</th><th>Shift</th><th>Task</th><th>Status</th></tr></thead><tbody>
-        <tr><td>CA-001</td><td>Zhang San</td><td>Rex</td><td>Morning</td><td>Feeding &amp; walk</td><td><span class="badge badge-approved">Done</span></td></tr>
-        <tr><td>CA-002</td><td>Li Ming</td><td>Mochi</td><td>Morning</td><td>Grooming</td><td><span class="badge badge-approved">Done</span></td></tr>
-        <tr><td>CA-003</td><td>Zhang San</td><td>Buddy</td><td>Afternoon</td><td>Feeding &amp; walk</td><td><span class="badge badge-pending">Pending</span></td></tr>
-        <tr><td>CA-004</td><td>Wang Fang</td><td>Snowball</td><td>Afternoon</td><td>Medication</td><td><span class="badge badge-pending">Pending</span></td></tr>
-        <tr><td>CA-005</td><td>Wang Fang</td><td>Luna</td><td>Evening</td><td>Feeding</td><td><span class="badge badge-pending">Pending</span></td></tr>
-      </tbody></table>
-    </div>
-  </div>
-
-</div><!-- end .main -->
-</div><!-- end .app -->
-
-<!-- ── Pet detail modal ── -->
-<div class="overlay" id="pet-detail-overlay">
-  <div class="modal-box">
-    <button class="modal-close" onclick="closeOverlay('pet-detail-overlay')">✕</button>
-    <div class="modal-title" id="modal-pet-name"></div>
-    <div id="modal-pet-fields"></div>
-  </div>
+    <section id="page-volunteers" class="page">
+      <div class="page-title">Volunteers & assignments</div>
+      <div class="section">
+        <div class="section-head"><div class="section-title">Volunteers</div></div>
+        <table>
+          <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Status</th><th>Assigned pets</th></tr></thead>
+          <tbody id="volunteer-tbody"></tbody>
+        </table>
+      </div>
+      <div class="section">
+        <div class="section-head"><div class="section-title">Today's assignments</div></div>
+        <table>
+          <thead><tr><th>ID</th><th>Volunteer</th><th>Pet</th><th>Shift</th><th>Task</th><th>Status</th></tr></thead>
+          <tbody id="assign-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
 </div>
 
-<!-- ── Application detail modal ── -->
-<div class="overlay" id="app-detail-overlay">
-  <div class="modal-box">
-    <button class="modal-close" onclick="closeOverlay('app-detail-overlay')">✕</button>
-    <div class="modal-title" id="modal-app-title"></div>
-    <div id="modal-app-fields"></div>
-  </div>
-</div>
-
-<!-- ── New application modal ── -->
-<div class="overlay" id="new-app-overlay">
-  <div class="modal-box">
-    <button class="modal-close" onclick="closeOverlay('new-app-overlay')">✕</button>
-    <div class="modal-title">New adoption application</div>
-    <div class="form-group">
-      <label class="form-label">Applicant</label>
-      <select class="form-control" id="form-applicant">
-        <option value="">Select an applicant...</option>
-        <option>Chen Wei</option><option>Li Fang</option><option>Wang Hao</option>
-        <option>Zhang Ying</option><option>Liu Yang</option><option>Zhao Ming</option>
-        <option>Sun Jing</option><option>Wu Tao</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Pet (available only)</label>
-      <select class="form-control" id="form-pet"><option value="">Select a pet...</option></select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Reason for adoption</label>
-      <textarea class="form-control" id="form-reason" placeholder="Describe the applicant's living situation, experience with pets, and motivation..."></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Housing type</label>
-      <select class="form-control" id="form-housing">
-        <option value="">Select housing type...</option>
-        <option>Apartment</option><option>House with garden</option>
-        <option>House without garden</option><option>Shared housing</option>
-      </select>
-    </div>
-    <div class="hint-box">
-      Submitting creates a new record in <code>ADOPTION_APPLICATION</code> with status set to <code>Pending</code>. The pet's status will be updated to <code>Reserved</code>.
-    </div>
-    <div class="form-actions">
-      <button class="btn-sm" onclick="closeOverlay('new-app-overlay')">Cancel</button>
-      <button class="btn-primary" onclick="submitNewApp()">Submit application</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Review modal ── -->
-<div class="overlay" id="review-overlay">
-  <div class="modal-box">
-    <button class="modal-close" onclick="closeOverlay('review-overlay')">✕</button>
-    <div class="modal-title" id="review-title"></div>
-    <div class="review-summary" id="review-summary"></div>
-    <div class="form-group">
-      <label class="form-label">Decision note</label>
-      <textarea class="form-control" id="review-note" placeholder="Enter your review comments..."></textarea>
-    </div>
-    <div class="hint-box" style="margin-bottom:0">
-      This will execute: <code>UPDATE ADOPTION_APPLICATION SET status=?, reviewed_date=?, reviewer_name=?, decision_note=? WHERE application_id=?</code>
-    </div>
-    <div class="form-actions">
-      <button class="btn-sm" onclick="closeOverlay('review-overlay')">Cancel</button>
-      <button class="btn-reject" onclick="submitReview('Rejected')">Reject</button>
-      <button class="btn-approve" onclick="submitReview('Approved')">Approve</button>
-    </div>
-  </div>
-</div>
-
-<!-- ── Toast ── -->
-<div class="toast" id="toast"></div>
+<div class="overlay" id="modal-overlay"><div class="modal" id="modal"></div></div>
+<div id="toast" class="toast"></div>
 
 <script>
-const pets = [
-  {id:'P-001',name:'Buddy',species:'Dog',breed:'Golden Retriever',sex:'Male',color:'Golden',birth:'2022-03-15',intake:'2025-11-02',status:'Available',sterilized:'Yes',special:'None'},
-  {id:'P-002',name:'Mochi',species:'Cat',breed:'British Shorthair',sex:'Female',color:'Grey',birth:'2023-07-20',intake:'2026-01-10',status:'Reserved',sterilized:'Yes',special:'None'},
-  {id:'P-003',name:'Rex',species:'Dog',breed:'German Shepherd',sex:'Male',color:'Black & Tan',birth:'2021-09-05',intake:'2025-08-17',status:'Medical hold',sterilized:'No',special:'Injured paw'},
-  {id:'P-004',name:'Snowball',species:'Rabbit',breed:'Holland Lop',sex:'Female',color:'White',birth:'2024-02-11',intake:'2026-02-28',status:'Available',sterilized:'No',special:'None'},
-  {id:'P-005',name:'Luna',species:'Cat',breed:'Siamese',sex:'Female',color:'Cream & Brown',birth:'2022-11-30',intake:'2025-12-05',status:'Adopted',sterilized:'Yes',special:'None'},
-  {id:'P-006',name:'Daisy',species:'Dog',breed:'Beagle',sex:'Female',color:'Tri-color',birth:'2023-04-18',intake:'2026-03-01',status:'Available',sterilized:'Yes',special:'None'},
-  {id:'P-007',name:'Oreo',species:'Cat',breed:'Domestic Shorthair',sex:'Male',color:'Black & White',birth:'2024-01-09',intake:'2026-03-15',status:'Available',sterilized:'No',special:'None'},
-  {id:'P-008',name:'Max',species:'Dog',breed:'Labrador',sex:'Male',color:'Black',birth:'2022-06-22',intake:'2025-10-08',status:'Reserved',sterilized:'Yes',special:'None'},
-];
+const STORAGE_KEY = 'pawtrack_state_v2';
+const state = loadState() || {
+  pets: [
+    {id:'P-001',name:'Buddy',species:'Dog',breed:'Golden Retriever',sex:'Male',color:'Golden',birth:'2022-03-15',intake:'2025-11-02',status:'Available',sterilized:'Yes',special:'None'},
+    {id:'P-002',name:'Mochi',species:'Cat',breed:'British Shorthair',sex:'Female',color:'Grey',birth:'2023-07-20',intake:'2026-01-10',status:'Reserved',sterilized:'Yes',special:'None'},
+    {id:'P-003',name:'Rex',species:'Dog',breed:'German Shepherd',sex:'Male',color:'Black & Tan',birth:'2021-09-05',intake:'2025-08-17',status:'Medical hold',sterilized:'No',special:'Injured paw'},
+    {id:'P-004',name:'Snowball',species:'Rabbit',breed:'Holland Lop',sex:'Female',color:'White',birth:'2024-02-11',intake:'2026-02-28',status:'Available',sterilized:'No',special:'None'},
+    {id:'P-005',name:'Luna',species:'Cat',breed:'Siamese',sex:'Female',color:'Cream & Brown',birth:'2022-11-30',intake:'2025-12-05',status:'Adopted',sterilized:'Yes',special:'None'},
+    {id:'P-006',name:'Daisy',species:'Dog',breed:'Beagle',sex:'Female',color:'Tri-color',birth:'2023-04-18',intake:'2026-03-01',status:'Available',sterilized:'Yes',special:'None'},
+    {id:'P-007',name:'Oreo',species:'Cat',breed:'Domestic Shorthair',sex:'Male',color:'Black & White',birth:'2024-01-09',intake:'2026-03-15',status:'Available',sterilized:'No',special:'None'},
+    {id:'P-008',name:'Max',species:'Dog',breed:'Labrador',sex:'Male',color:'Black',birth:'2022-06-22',intake:'2025-10-08',status:'Reserved',sterilized:'Yes',special:'None'}
+  ],
+  applications: [
+    {id:'APP-001',applicant:'Chen Wei',pet:'Buddy',date:'2026-03-20',status:'Approved',reviewer:'Staff A',reason:'Long-time dog lover, owns a house with garden.',decision:'Approved — ideal living conditions'},
+    {id:'APP-002',applicant:'Li Fang',pet:'Mochi',date:'2026-04-01',status:'Pending',reviewer:'—',reason:'First-time cat owner, works from home.',decision:'—'},
+    {id:'APP-003',applicant:'Wang Hao',pet:'Luna',date:'2026-02-14',status:'Approved',reviewer:'Staff B',reason:'Has two cats at home, experienced owner.',decision:'Approved — good match'},
+    {id:'APP-004',applicant:'Zhang Ying',pet:'Rex',date:'2026-04-05',status:'Pending',reviewer:'—',reason:'Wants a guard dog, has large yard.',decision:'—'},
+    {id:'APP-005',applicant:'Liu Yang',pet:'Daisy',date:'2026-04-08',status:'Pending',reviewer:'—',reason:'Family with two children, active lifestyle.',decision:'—'},
+    {id:'APP-006',applicant:'Zhao Ming',pet:'Max',date:'2026-03-28',status:'Rejected',reviewer:'Staff A',reason:'Apartment living, no outdoor space.',decision:'Rejected — not suitable for Labrador'}
+  ],
+  adoptions: [
+    {id:'ADP-001',applicationId:'APP-001',applicant:'Chen Wei',pet:'Buddy',adoptionDate:'2026-03-25',fee:300,handoverNote:'Starter kit provided.'},
+    {id:'ADP-002',applicationId:'APP-003',applicant:'Wang Hao',pet:'Luna',adoptionDate:'2026-02-20',fee:260,handoverNote:'Post-op care explained.'}
+  ],
+  followups: [
+    {id:'FU-001',adoptionId:'ADP-001',date:'2026-04-01',type:'Phone',petCondition:'Healthy and active',feedback:'Very positive',result:'Completed',staffNote:'No issues found.'},
+    {id:'FU-002',adoptionId:'ADP-002',date:'2026-03-12',type:'Home visit',petCondition:'Recovering well',feedback:'Needs diet guidance',result:'Completed',staffNote:'Shared food plan.'}
+  ],
+  medical: [
+    {pet:'Buddy',date:'2026-03-10',type:'Check-up',vet:'Dr. Wang'},
+    {pet:'Mochi',date:'2026-03-18',type:'Sterilization',vet:'Dr. Li'},
+    {pet:'Rex',date:'2026-04-02',type:'Injury',vet:'Dr. Wang'},
+    {pet:'Snowball',date:'2026-04-08',type:'Check-up',vet:'Dr. Chen'},
+    {pet:'Luna',date:'2026-04-10',type:'Surgery',vet:'Dr. Li'}
+  ],
+  vaccinations: [
+    {pet:'Rex',vaccine:'Rabies',due:'2026-04-15'},
+    {pet:'Mochi',vaccine:'FVRCP',due:'2026-04-20'},
+    {pet:'Buddy',vaccine:'DHPP',due:'2026-05-01'},
+    {pet:'Snowball',vaccine:'Bordetella',due:'2026-05-10'},
+    {pet:'Daisy',vaccine:'Rabies',due:'2026-05-22'}
+  ],
+  volunteers: [
+    {name:'Zhang San',email:'zhangsan@example.com',joined:'2025-06-01',status:'Active',pets:'Rex, Buddy'},
+    {name:'Li Ming',email:'liming@example.com',joined:'2025-09-15',status:'Active',pets:'Mochi'},
+    {name:'Wang Fang',email:'wangfang@example.com',joined:'2026-01-08',status:'Active',pets:'Snowball, Luna'},
+    {name:'Chen Jie',email:'chenjie@example.com',joined:'2026-02-20',status:'Inactive',pets:'—'}
+  ],
+  assignments: [
+    {id:'CA-001',volunteer:'Zhang San',pet:'Rex',shift:'Morning',task:'Feeding & walk',status:'Done'},
+    {id:'CA-002',volunteer:'Li Ming',pet:'Mochi',shift:'Morning',task:'Grooming',status:'Done'},
+    {id:'CA-003',volunteer:'Zhang San',pet:'Buddy',shift:'Afternoon',task:'Feeding & walk',status:'Pending'},
+    {id:'CA-004',volunteer:'Wang Fang',pet:'Snowball',shift:'Afternoon',task:'Medication',status:'Pending'}
+  ],
+  activity: [
+    {text:'Buddy adopted by Chen Wei',type:'green',time:'Today, 10:32 AM'},
+    {text:'New application for Mochi from Li Fang',type:'amber',time:'Today, 09:14 AM'},
+    {text:'Vaccination record added for Snowball',type:'blue',time:'Yesterday, 04:45 PM'}
+  ],
+  ids: {app: 7, adoption: 3, followup: 3}
+};
 
-let apps = [
-  {id:'APP-001',applicant:'Chen Wei',pet:'Buddy',date:'2026-03-20',status:'Approved',reviewer:'Staff A',reason:'Long-time dog lover, owns a house with garden.',decision:'Approved — ideal living conditions'},
-  {id:'APP-002',applicant:'Li Fang',pet:'Mochi',date:'2026-04-01',status:'Pending',reviewer:'—',reason:'First-time cat owner, works from home.',decision:'—'},
-  {id:'APP-003',applicant:'Wang Hao',pet:'Luna',date:'2026-02-14',status:'Approved',reviewer:'Staff B',reason:'Has two cats at home, experienced owner.',decision:'Approved — good match'},
-  {id:'APP-004',applicant:'Zhang Ying',pet:'Rex',date:'2026-04-05',status:'Pending',reviewer:'—',reason:'Wants a guard dog, has large yard.',decision:'—'},
-  {id:'APP-005',applicant:'Liu Yang',pet:'Daisy',date:'2026-04-08',status:'Pending',reviewer:'—',reason:'Family with two children, active lifestyle.',decision:'—'},
-  {id:'APP-006',applicant:'Zhao Ming',pet:'Max',date:'2026-03-28',status:'Rejected',reviewer:'Staff A',reason:'Apartment living, no outdoor space.',decision:'Rejected — not suitable for Labrador'},
-];
+let currentPage = 'dashboard';
+let keySequence = '';
 
-let reviewingIndex = -1;
-let nextAppNum = 7;
-
-function statusBadge(s) {
-  const m = {'Available':'badge-available','Reserved':'badge-reserved','Adopted':'badge-adopted','Medical hold':'badge-hold','Pending':'badge-pending','Approved':'badge-approved','Rejected':'badge-rejected'};
-  return `<span class="badge ${m[s]||''}">${s}</span>`;
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (_) { return null; }
 }
-
-function showToast(msg, type='success') {
+function esc(str){ return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function badge(type, text){ return `<span class="badge ${type}">${esc(text)}</span>`; }
+function showToast(msg, tone='info') {
   const t = document.getElementById('toast');
+  const color = tone === 'success' ? '#5f9421' : tone === 'danger' ? '#a23232' : '#1d5fa5';
+  t.style.borderLeftColor = color;
   t.textContent = msg;
-  t.className = 'toast show toast-' + type;
-  setTimeout(() => t.className = 'toast', 2800);
+  t.className = 'toast show';
+  setTimeout(()=>t.className='toast', 2800);
+}
+function nowLabel() {
+  const d = new Date();
+  let h = d.getHours();
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `Today, ${String(h).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${suffix}`;
 }
 
-function showPage(id, el) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  el.classList.add('active');
+function go(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.id === `page-${page}`));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  location.hash = page;
 }
 
-function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
-
-function renderPets(data) {
-  const tb = document.getElementById('pet-tbody');
-  if (!data.length) { tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--color-text-secondary)">No pets found</td></tr>'; return; }
-  tb.innerHTML = data.map(p => `<tr>
-    <td style="color:var(--color-text-secondary)">${p.id}</td>
-    <td style="font-weight:500">${p.name}</td>
-    <td>${p.species}</td><td>${p.breed}</td><td>${p.sex}</td>
-    <td>${statusBadge(p.status)}</td>
-    <td style="color:var(--color-text-secondary)">${p.intake}</td>
-    <td><button class="btn-sm" onclick="openPetDetail(${pets.indexOf(p)})">View</button></td>
-  </tr>`).join('');
+function addActivity(text, type='amber') {
+  state.activity.unshift({text, type, time: nowLabel()});
+  state.activity = state.activity.slice(0, 8);
+  saveState();
+  renderDashboard();
 }
 
-function filterPets() {
-  const q = document.getElementById('pet-search').value.toLowerCase();
-  const st = document.getElementById('pet-status-filter').value;
-  const sp = document.getElementById('pet-species-filter').value;
-  renderPets(pets.filter(p => (!q || p.name.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q)) && (!st || p.status === st) && (!sp || p.species === sp)));
-}
+function renderDashboard() {
+  const total = state.pets.length;
+  const available = state.pets.filter(p => p.status === 'Available').length;
+  const pending = state.applications.filter(a => a.status === 'Pending').length;
+  const adoptions = state.adoptions.length;
+  document.getElementById('dashboard-cards').innerHTML = [
+    {k:'Total pets',v:total,s:'in shelter system'},
+    {k:'Available now',v:available,s:'ready for adoption'},
+    {k:'Pending review',v:pending,s:'applications waiting'},
+    {k:'Total adoptions',v:adoptions,s:'records in system'}
+  ].map(c => `<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}</div><div class="s">${c.s}</div></div>`).join('');
 
-function openPetDetail(i) {
-  const p = pets[i];
-  document.getElementById('modal-pet-name').textContent = p.name;
-  document.getElementById('modal-pet-fields').innerHTML = [
-    ['ID',p.id],['Species',p.species],['Breed',p.breed],['Sex',p.sex],
-    ['Color',p.color],['Est. birth date',p.birth],['Intake date',p.intake],
-    ['Status',p.status],['Sterilized',p.sterilized],['Special needs',p.special]
-  ].map(([l,v]) => `<div class="field-row"><span class="field-label">${l}</span><span>${v}</span></div>`).join('');
-  document.getElementById('pet-detail-overlay').classList.add('open');
-}
+  const feed = document.getElementById('activity-feed');
+  feed.innerHTML = state.activity.map(a => `<div class="activity"><div class="dot dot-${a.type}"></div><div><div>${esc(a.text)}</div><div class="help">${esc(a.time)}</div></div></div>`).join('') || '<div class="empty">No activity yet.</div>';
 
-function renderApps(data) {
-  const tb = document.getElementById('app-tbody');
-  if (!data.length) { tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-secondary)">No applications found</td></tr>'; return; }
-  tb.innerHTML = data.map(a => {
-    const gi = apps.indexOf(a);
-    const actions = a.status === 'Pending'
-      ? `<div style="display:flex;gap:6px"><button class="btn-sm" onclick="openAppDetail(${gi})">View</button><button class="btn-approve" onclick="openReview(${gi})">Review</button></div>`
-      : `<button class="btn-sm" onclick="openAppDetail(${gi})">View</button>`;
-    return `<tr>
-      <td style="color:var(--color-text-secondary)">${a.id}</td>
-      <td style="font-weight:500">${a.applicant}</td>
-      <td>${a.pet}</td>
-      <td style="color:var(--color-text-secondary)">${a.date}</td>
-      <td>${statusBadge(a.status)}</td>
-      <td>${actions}</td>
-    </tr>`;
+  const counts = ['Available','Reserved','Medical hold','Adopted'].map(s => ({s, c: state.pets.filter(p => p.status === s).length}));
+  document.getElementById('pet-status-overview').innerHTML = counts.map(it => {
+    const pct = total ? `${Math.round(it.c / total * 100)}%` : '0%';
+    return `<tr><td>${statusBadge(it.s)}</td><td>${it.c}</td><td>${pct}</td></tr>`;
   }).join('');
 }
 
-function filterApps() {
+function statusBadge(s) {
+  const map = {
+    'Available':'b-available','Reserved':'b-reserved','Adopted':'b-adopted','Medical hold':'b-hold',
+    'Pending':'b-pending','Approved':'b-approved','Rejected':'b-rejected','Done':'b-done',
+    'Active':'b-active','Inactive':'b-inactive'
+  };
+  return badge(map[s] || '', s);
+}
+
+function renderPets() {
+  const q = document.getElementById('pet-search').value.toLowerCase();
+  const st = document.getElementById('pet-status-filter').value;
+  const sp = document.getElementById('pet-species-filter').value;
+  const filtered = state.pets.filter(p => (!q || p.name.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q)) && (!st || p.status===st) && (!sp || p.species===sp));
+  document.getElementById('pet-tbody').innerHTML = filtered.length ? filtered.map((p, i) => `<tr>
+    <td>${p.id}</td><td><strong>${esc(p.name)}</strong></td><td>${esc(p.species)}</td><td>${esc(p.breed)}</td>
+    <td>${statusBadge(p.status)}</td><td>${p.intake}</td>
+    <td><button class="btn" data-pet-index="${state.pets.indexOf(p)}">View</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty">No pets found.</td></tr>`;
+
+  document.querySelectorAll('[data-pet-index]').forEach(btn => btn.onclick = () => openPetDetail(Number(btn.dataset.petIndex)));
+}
+
+function openPetDetail(i){
+  const p = state.pets[i];
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>${esc(p.name)} (${p.id})</h3>
+    ${[
+      ['Species',p.species],['Breed',p.breed],['Sex',p.sex],['Color',p.color],['Birth',p.birth],
+      ['Intake',p.intake],['Status',p.status],['Sterilized',p.sterilized],['Special needs',p.special]
+    ].map(([k,v]) => `<div class="field"><span class="field-label">${k}</span><span>${esc(v)}</span></div>`).join('')}
+  `);
+}
+
+function renderApplications() {
   const q = document.getElementById('app-search').value.toLowerCase();
   const st = document.getElementById('app-status-filter').value;
-  renderApps(apps.filter(a => (!q || a.applicant.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q)) && (!st || a.status === st)));
+  const list = state.applications.filter(a => (!q || a.applicant.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q)) && (!st || a.status === st));
+  document.getElementById('app-tbody').innerHTML = list.length ? list.map(a => {
+    const i = state.applications.indexOf(a);
+    const action = a.status === 'Pending'
+      ? `<button class="btn" data-app-view="${i}">View</button> <button class="btn btn-success" data-app-review="${i}">Review</button>`
+      : `<button class="btn" data-app-view="${i}">View</button>`;
+    return `<tr><td>${a.id}</td><td><strong>${esc(a.applicant)}</strong></td><td>${esc(a.pet)}</td><td>${a.date}</td><td>${statusBadge(a.status)}</td><td>${action}</td></tr>`;
+  }).join('') : `<tr><td colspan="6" class="empty">No applications found.</td></tr>`;
+
+  document.querySelectorAll('[data-app-view]').forEach(btn => btn.onclick = () => openAppDetail(Number(btn.dataset.appView)));
+  document.querySelectorAll('[data-app-review]').forEach(btn => btn.onclick = () => openReviewModal(Number(btn.dataset.appReview)));
 }
 
 function openAppDetail(i) {
-  const a = apps[i];
-  document.getElementById('modal-app-title').textContent = `${a.id} — ${a.applicant}`;
-  document.getElementById('modal-app-fields').innerHTML = [
-    ['Pet',a.pet],['Application date',a.date],['Status',a.status],
-    ['Reason',a.reason],['Reviewer',a.reviewer],['Decision note',a.decision]
-  ].map(([l,v]) => `<div class="field-row"><span class="field-label">${l}</span><span style="max-width:60%;text-align:right">${v}</span></div>`).join('');
-  document.getElementById('app-detail-overlay').classList.add('open');
+  const a = state.applications[i];
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>${a.id} — ${esc(a.applicant)}</h3>
+    ${[['Pet',a.pet],['Date',a.date],['Status',a.status],['Reviewer',a.reviewer],['Reason',a.reason],['Decision',a.decision]].map(([k,v]) => `<div class="field"><span class="field-label">${k}</span><span>${esc(v)}</span></div>`).join('')}
+  `);
 }
 
-function openReview(i) {
-  reviewingIndex = i;
-  const a = apps[i];
-  document.getElementById('review-title').textContent = `Review: ${a.id}`;
-  document.getElementById('review-summary').innerHTML = `<strong>${a.applicant}</strong> applied to adopt <strong>${a.pet}</strong> on ${a.date}.<br><span style="color:var(--color-text-secondary);margin-top:4px;display:block">"${a.reason}"</span>`;
-  document.getElementById('review-note').value = '';
-  document.getElementById('review-overlay').classList.add('open');
+function openReviewModal(i) {
+  const a = state.applications[i];
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>Review ${a.id}</h3>
+    <div class="help" style="margin-bottom:10px"><strong>${esc(a.applicant)}</strong> applied for <strong>${esc(a.pet)}</strong> on ${a.date}</div>
+    <div class="form-row"><label class="form-label">Decision note (required)</label><textarea class="textarea" id="review-note"></textarea></div>
+    <div class="form-actions">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn btn-danger" id="reject-btn">Reject</button>
+      <button class="btn btn-success" id="approve-btn">Approve</button>
+    </div>
+  `);
+  document.getElementById('reject-btn').onclick = () => submitReview(i, 'Rejected');
+  document.getElementById('approve-btn').onclick = () => submitReview(i, 'Approved');
 }
 
-function submitReview(decision) {
-  if (reviewingIndex < 0) return;
+function submitReview(i, decision) {
   const note = document.getElementById('review-note').value.trim();
-  if (!note) {
-    document.getElementById('review-note').style.borderColor = '#A32D2D';
-    setTimeout(() => document.getElementById('review-note').style.borderColor = '', 1500);
-    return;
+  if (!note) return showToast('Decision note is required.', 'danger');
+  const app = state.applications[i];
+  app.status = decision;
+  app.decision = note;
+  app.reviewer = 'Staff (you)';
+
+  if (decision === 'Rejected') {
+    const pet = state.pets.find(p => p.name === app.pet && p.status === 'Reserved');
+    if (pet) pet.status = 'Available';
   }
-  const a = apps[reviewingIndex];
-  a.status = decision;
-  a.reviewer = 'Staff (you)';
-  a.decision = note;
-  closeOverlay('review-overlay');
-  renderApps(apps);
-  updateDashPending();
-  prependActivity(`Application ${a.id} ${decision.toLowerCase()} for ${a.pet}`, decision === 'Approved' ? 'dot-green' : 'dot-amber');
-  showToast(`Application ${a.id} marked as ${decision}`, 'success');
-  reviewingIndex = -1;
+
+  saveState();
+  closeModal();
+  renderAll();
+  addActivity(`${app.id} ${decision.toLowerCase()} for ${app.pet}`, decision === 'Approved' ? 'green' : 'amber');
+  showToast(`Application ${app.id} updated to ${decision}.`, 'success');
 }
 
-function openNewAppModal() {
-  const sel = document.getElementById('form-pet');
-  sel.innerHTML = '<option value="">Select a pet...</option>';
-  pets.filter(p => p.status === 'Available').forEach(p => {
-    const o = document.createElement('option');
-    o.textContent = `${p.name} (${p.breed})`;
-    o.value = p.name;
-    sel.appendChild(o);
-  });
-  document.getElementById('form-applicant').value = '';
-  document.getElementById('form-reason').value = '';
-  document.getElementById('form-housing').value = '';
-  document.getElementById('new-app-overlay').classList.add('open');
+function openNewApplicationModal() {
+  const availablePets = state.pets.filter(p => p.status === 'Available');
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>New adoption application</h3>
+    <div class="form-row"><label class="form-label">Applicant</label><input id="new-applicant" class="input" placeholder="Full name" style="width:100%"></div>
+    <div class="form-row"><label class="form-label">Pet (available only)</label>
+      <select id="new-app-pet" class="select" style="width:100%"><option value="">Select a pet</option>${availablePets.map(p => `<option value="${esc(p.name)}">${esc(p.name)} (${esc(p.breed)})</option>`).join('')}</select>
+    </div>
+    <div class="form-row"><label class="form-label">Housing type</label><select id="new-app-housing" class="select" style="width:100%"><option value="">Select</option><option>Apartment</option><option>House with garden</option><option>House without garden</option><option>Shared housing</option></select></div>
+    <div class="form-row"><label class="form-label">Reason</label><textarea id="new-app-reason" class="textarea" placeholder="Experience, motivation, and living arrangement"></textarea></div>
+    <div class="form-actions">
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn btn-primary" id="submit-new-app">Submit</button>
+    </div>
+  `);
+  document.getElementById('submit-new-app').onclick = submitNewApplication;
 }
 
-function submitNewApp() {
-  const applicant = document.getElementById('form-applicant').value;
-  const petName = document.getElementById('form-pet').value;
-  const reason = document.getElementById('form-reason').value.trim();
-  const housing = document.getElementById('form-housing').value;
-  if (!applicant || !petName || !reason || !housing) { showToast('Please fill in all fields', 'info'); return; }
-  const today = new Date().toISOString().slice(0, 10);
-  const newApp = { id:`APP-00${nextAppNum++}`, applicant, pet:petName, date:today, status:'Pending', reviewer:'—', reason, decision:'—' };
-  apps.unshift(newApp);
-  const pet = pets.find(p => p.name === petName);
+function submitNewApplication() {
+  const applicant = document.getElementById('new-applicant').value.trim();
+  const petName = document.getElementById('new-app-pet').value;
+  const housing = document.getElementById('new-app-housing').value;
+  const reason = document.getElementById('new-app-reason').value.trim();
+  if (!applicant || !petName || !housing || !reason) return showToast('Please fill in all fields.', 'danger');
+
+  const id = `APP-${String(state.ids.app++).padStart(3,'0')}`;
+  state.applications.unshift({id, applicant, pet: petName, date: new Date().toISOString().slice(0,10), status:'Pending', reviewer:'—', reason: `${reason} (Housing: ${housing})`, decision:'—'});
+  const pet = state.pets.find(p => p.name === petName);
   if (pet) pet.status = 'Reserved';
-  closeOverlay('new-app-overlay');
-  renderApps(apps);
-  filterPets();
-  updateDashPending();
-  prependActivity(`New application from ${applicant} for ${petName}`, 'dot-amber');
-  showToast(`Application ${newApp.id} submitted successfully`, 'success');
+
+  saveState();
+  closeModal();
+  renderAll();
+  addActivity(`New application ${id} from ${applicant} for ${petName}`, 'amber');
+  showToast(`Application ${id} created.`, 'success');
 }
 
-function updateDashPending() {
-  document.getElementById('dash-pending-count').textContent = apps.filter(a => a.status === 'Pending').length;
+function renderAdoptions() {
+  const body = document.getElementById('adoption-tbody');
+  body.innerHTML = state.adoptions.length ? state.adoptions.map((a, i) => `<tr>
+    <td>${a.id}</td><td>${a.applicationId}</td><td><strong>${esc(a.applicant)}</strong></td><td>${esc(a.pet)}</td><td>${a.adoptionDate}</td><td>$${a.fee}</td>
+    <td><button class="btn" data-view-adoption="${i}">View</button></td>
+  </tr>`).join('') : `<tr><td colspan="7" class="empty">No adoption records yet.</td></tr>`;
+  document.querySelectorAll('[data-view-adoption]').forEach(btn => btn.onclick = () => {
+    const a = state.adoptions[Number(btn.dataset.viewAdoption)];
+    openModal(`<button class="modal-close" data-close>✕</button><h3>${a.id}</h3>${[['Application',a.applicationId],['Adopter',a.applicant],['Pet',a.pet],['Date',a.adoptionDate],['Fee',`$${a.fee}`],['Handover note',a.handoverNote]].map(([k,v])=>`<div class="field"><span class="field-label">${k}</span><span>${esc(v)}</span></div>`).join('')}`);
+  });
 }
 
-function prependActivity(text, dotClass) {
-  const feed = document.getElementById('activity-feed');
-  const now = new Date();
-  const h = now.getHours(), m = String(now.getMinutes()).padStart(2,'0');
-  const time = `Today, ${h}:${m} ${h < 12 ? 'AM' : 'PM'}`;
-  const div = document.createElement('div');
-  div.className = 'activity-item';
-  div.innerHTML = `<div class="activity-dot ${dotClass}"></div><div><div class="activity-text">${text}</div><div class="activity-time">${time}</div></div>`;
-  feed.insertBefore(div, feed.firstChild);
-  if (feed.children.length > 5) feed.removeChild(feed.lastChild);
+function openNewAdoptionModal() {
+  const candidates = state.applications.filter(a => a.status === 'Approved' && !state.adoptions.some(ad => ad.applicationId === a.id));
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>Create adoption record</h3>
+    <div class="form-row"><label class="form-label">Approved application</label><select id="adp-app" class="select" style="width:100%"><option value="">Select</option>${candidates.map(c => `<option value="${c.id}">${c.id} — ${esc(c.applicant)} / ${esc(c.pet)}</option>`).join('')}</select></div>
+    <div class="form-row"><label class="form-label">Adoption date</label><input id="adp-date" class="input" type="date" style="width:100%" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="form-row"><label class="form-label">Final fee (USD)</label><input id="adp-fee" class="input" type="number" min="0" value="280" style="width:100%"></div>
+    <div class="form-row"><label class="form-label">Handover note</label><textarea id="adp-note" class="textarea"></textarea></div>
+    <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="adp-submit">Create record</button></div>
+  `);
+  document.getElementById('adp-submit').onclick = () => {
+    const appId = document.getElementById('adp-app').value;
+    const date = document.getElementById('adp-date').value;
+    const fee = Number(document.getElementById('adp-fee').value);
+    const note = document.getElementById('adp-note').value.trim() || '—';
+    if (!appId || !date || Number.isNaN(fee)) return showToast('Please complete all required fields.', 'danger');
+    const app = state.applications.find(a => a.id === appId);
+    if (!app) return showToast('Application not found.', 'danger');
+
+    const id = `ADP-${String(state.ids.adoption++).padStart(3,'0')}`;
+    state.adoptions.unshift({id, applicationId: appId, applicant: app.applicant, pet: app.pet, adoptionDate: date, fee, handoverNote: note});
+    const pet = state.pets.find(p => p.name === app.pet);
+    if (pet) pet.status = 'Adopted';
+
+    saveState();
+    closeModal();
+    renderAll();
+    addActivity(`Adoption ${id} created for ${app.pet}`, 'green');
+    showToast(`Adoption record ${id} created.`, 'success');
+  };
 }
 
-renderPets(pets);
-renderApps(apps);
+function renderFollowups() {
+  const body = document.getElementById('followup-tbody');
+  body.innerHTML = state.followups.length ? state.followups.map(f => `<tr><td>${f.id}</td><td>${f.adoptionId}</td><td>${f.date}</td><td>${esc(f.type)}</td><td>${statusBadge(f.result)}</td><td>${esc(f.petCondition)}</td></tr>`).join('') : `<tr><td colspan="6" class="empty">No follow-ups yet.</td></tr>`;
+}
+
+function openNewFollowupModal() {
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>Add follow-up</h3>
+    <div class="form-row"><label class="form-label">Adoption ID</label><select id="fu-adoption" class="select" style="width:100%"><option value="">Select</option>${state.adoptions.map(a => `<option value="${a.id}">${a.id} — ${esc(a.pet)} (${esc(a.applicant)})</option>`).join('')}</select></div>
+    <div class="form-row"><label class="form-label">Follow-up date</label><input id="fu-date" class="input" type="date" style="width:100%" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="form-row"><label class="form-label">Type</label><select id="fu-type" class="select" style="width:100%"><option>Phone</option><option>Home visit</option><option>Video call</option></select></div>
+    <div class="form-row"><label class="form-label">Pet condition</label><textarea id="fu-condition" class="textarea"></textarea></div>
+    <div class="form-row"><label class="form-label">Adopter feedback</label><textarea id="fu-feedback" class="textarea"></textarea></div>
+    <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="fu-submit">Add</button></div>
+  `);
+  document.getElementById('fu-submit').onclick = () => {
+    const adoptionId = document.getElementById('fu-adoption').value;
+    const date = document.getElementById('fu-date').value;
+    const type = document.getElementById('fu-type').value;
+    const petCondition = document.getElementById('fu-condition').value.trim();
+    const feedback = document.getElementById('fu-feedback').value.trim();
+    if (!adoptionId || !date || !petCondition || !feedback) return showToast('Please fill all follow-up fields.', 'danger');
+    const id = `FU-${String(state.ids.followup++).padStart(3,'0')}`;
+    state.followups.unshift({id, adoptionId, date, type, petCondition, feedback, result:'Completed', staffNote:'Recorded by front desk'});
+    saveState();
+    closeModal();
+    renderAll();
+    addActivity(`Follow-up ${id} completed for ${adoptionId}`, 'blue');
+    showToast(`Follow-up ${id} saved.`, 'success');
+  };
+}
+
+function renderMedical() {
+  document.getElementById('medical-tbody').innerHTML = state.medical.map(m => `<tr><td>${esc(m.pet)}</td><td>${m.date}</td><td>${esc(m.type)}</td><td>${esc(m.vet)}</td></tr>`).join('');
+  document.getElementById('vax-tbody').innerHTML = state.vaccinations.map(v => {
+    const danger = v.due <= new Date().toISOString().slice(0,10);
+    return `<tr><td>${esc(v.pet)}</td><td>${esc(v.vaccine)}</td><td style="color:${danger ? '#a23232' : 'inherit'}">${v.due}</td></tr>`;
+  }).join('');
+}
+
+function renderVolunteers() {
+  document.getElementById('volunteer-tbody').innerHTML = state.volunteers.map(v => `<tr><td><strong>${esc(v.name)}</strong></td><td>${esc(v.email)}</td><td>${v.joined}</td><td>${statusBadge(v.status)}</td><td>${esc(v.pets)}</td></tr>`).join('');
+  document.getElementById('assign-tbody').innerHTML = state.assignments.map(a => `<tr><td>${a.id}</td><td>${esc(a.volunteer)}</td><td>${esc(a.pet)}</td><td>${esc(a.shift)}</td><td>${esc(a.task)}</td><td>${statusBadge(a.status)}</td></tr>`).join('');
+}
+
+function openModal(html) {
+  const modal = document.getElementById('modal');
+  modal.innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('open');
+  modal.querySelectorAll('[data-close]').forEach(el => el.onclick = closeModal);
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+function renderAll(){
+  renderDashboard();
+  renderPets();
+  renderApplications();
+  renderAdoptions();
+  renderFollowups();
+  renderMedical();
+  renderVolunteers();
+}
+
+// navigation
+Array.from(document.querySelectorAll('.nav-item')).forEach(item => item.addEventListener('click', () => go(item.dataset.page)));
+window.addEventListener('hashchange', () => {
+  const page = location.hash.replace('#','');
+  if (document.getElementById(`page-${page}`)) go(page);
+});
+
+// filters
+['pet-search','pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('input', renderPets));
+['pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('change', renderPets));
+['app-search','app-status-filter'].forEach(id => document.getElementById(id).addEventListener('input', renderApplications));
+document.getElementById('app-status-filter').addEventListener('change', renderApplications);
+
+// actions
+document.getElementById('btn-new-app').onclick = openNewApplicationModal;
+document.getElementById('btn-new-adoption').onclick = openNewAdoptionModal;
+document.getElementById('btn-new-followup').onclick = openNewFollowupModal;
+document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
+
+// shortcuts: / focus search; g p / g a quick nav
+window.addEventListener('keydown', (e) => {
+  if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+    e.preventDefault();
+    const map = {pets:'pet-search', applications:'app-search'};
+    const target = map[currentPage];
+    if (target) document.getElementById(target).focus();
+  }
+
+  if (e.key.length === 1 && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
+    keySequence += e.key.toLowerCase();
+    if (keySequence.length > 2) keySequence = keySequence.slice(-2);
+    if (keySequence === 'gp') go('pets');
+    if (keySequence === 'ga') go('applications');
+    setTimeout(() => keySequence = '', 600);
+  }
+});
+
+if (location.hash && document.getElementById(`page-${location.hash.slice(1)}`)) go(location.hash.slice(1));
+renderAll();
 </script>
 </body>
 </html>
