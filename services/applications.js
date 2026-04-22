@@ -2,6 +2,8 @@ export function createApplicationsService(apiClient) {
   return {
     listApplications: () => apiClient.get('/applications'),
     createApplication: (payload) => apiClient.post('/applications', payload),
-    reviewApplication: (applicationId, payload) => apiClient.patch(`/applications/${encodeURIComponent(applicationId)}/review`, payload)
+    reviewApplication: (applicationId, payload) => apiClient.patch(`/applications/${encodeURIComponent(applicationId)}/review`, payload),
+    listApplicants: () => apiClient.get('/applicants'),
+    getApplicantDetail: (applicantId) => apiClient.get(`/applicants/${encodeURIComponent(applicantId)}`)
   };
 }

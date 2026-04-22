@@ -115,6 +115,7 @@ tr:hover td{background:var(--bg-secondary)}
     <div class="nav-item active" data-page="dashboard">Dashboard</div>
     <div class="nav-item" data-page="pets">Pets</div>
     <div class="nav-item" data-page="applications">Applications</div>
+    <div class="nav-item" data-page="applicants">Applicants</div>
     <div class="nav-item" data-page="adoptions">Adoptions</div>
     <div class="nav-item" data-page="followups">Follow-ups</div>
     <div class="nav-item" data-page="medical">Medical</div>
@@ -145,6 +146,7 @@ tr:hover td{background:var(--bg-secondary)}
       <div class="page-title">Pet management</div>
       <div class="section">
         <div class="toolbar">
+          <button class="btn btn-primary" id="btn-new-pet">+ New pet</button>
           <input class="input" id="pet-search" placeholder="Search by name or breed">
           <select class="select" id="pet-status-filter"></select>
           <select class="select" id="pet-species-filter"><option value="">All species</option><option>Dog</option><option>Cat</option><option>Rabbit</option></select>
@@ -188,6 +190,20 @@ tr:hover td{background:var(--bg-secondary)}
       </div>
     </section>
 
+    <section id="page-applicants" class="page">
+      <div class="page-title">Applicants</div>
+      <div class="section">
+        <div class="section-head"><div class="section-title">Applicant list & pass-rate insights</div></div>
+        <div class="toolbar">
+          <input class="input" id="applicant-search" placeholder="Search applicant name/email">
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Applications</th><th>Approved</th><th>Pass rate</th><th>Actions</th></tr></thead>
+          <tbody id="applicant-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <section id="page-followups" class="page">
       <div class="page-title">Post-adoption follow-ups</div>
       <div class="section">
@@ -206,16 +222,16 @@ tr:hover td{background:var(--bg-secondary)}
       <div class="page-title">Medical & vaccination</div>
       <div class="grid-2">
         <div class="section">
-          <div class="section-head"><div class="section-title">Medical visits</div></div>
+          <div class="section-head"><div class="section-title">Medical visits</div><button class="btn btn-primary" id="btn-new-medical">+ New medical</button></div>
           <table>
-            <thead><tr><th>Pet</th><th>Date</th><th>Type</th><th>Vet</th></tr></thead>
+            <thead><tr><th>Pet</th><th>Date</th><th>Type</th><th>Vet</th><th>Actions</th></tr></thead>
             <tbody id="medical-tbody"></tbody>
           </table>
         </div>
         <div class="section">
-          <div class="section-head"><div class="section-title">Upcoming vaccinations</div></div>
+          <div class="section-head"><div class="section-title">Upcoming vaccinations</div><button class="btn btn-primary" id="btn-new-vax">+ New vaccination</button></div>
           <table>
-            <thead><tr><th>Pet</th><th>Vaccine</th><th>Due</th></tr></thead>
+            <thead><tr><th>Pet</th><th>Vaccine</th><th>Due</th><th>Actions</th></tr></thead>
             <tbody id="vax-tbody"></tbody>
           </table>
         </div>
@@ -232,9 +248,9 @@ tr:hover td{background:var(--bg-secondary)}
         </table>
       </div>
       <div class="section">
-        <div class="section-head"><div class="section-title">Today's assignments</div></div>
+        <div class="section-head"><div class="section-title">Today's assignments</div><button class="btn btn-primary" id="btn-new-assignment">+ Assign task</button></div>
         <table>
-          <thead><tr><th>ID</th><th>Volunteer</th><th>Pet</th><th>Shift</th><th>Task</th><th>Status</th></tr></thead>
+          <thead><tr><th>ID</th><th>Volunteer</th><th>Pet</th><th>Shift</th><th>Task</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="assign-tbody"></tbody>
         </table>
       </div>
@@ -324,6 +340,7 @@ function statusLabel(value) {
 const uiState = {
   pets: [],
   applications: [],
+  applicants: [],
   adoptions: [],
   followups: [],
   medical: [],
@@ -331,6 +348,11 @@ const uiState = {
   volunteers: [],
   assignments: [],
   activity: []
+};
+const ENUMS = globalThis.ENUMS || {
+  followupStatus: {
+    COMPLETED: 'Completed'
+  }
 };
 
 let currentPage = 'dashboard';
@@ -358,6 +380,9 @@ function normalizeList(payload, fallbackKey) {
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.[fallbackKey])) return payload[fallbackKey];
   return [];
+}
+function nextTempId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random()*1000)}`;
 }
 
 function go(page) {
@@ -409,9 +434,10 @@ function renderPets(state) {
   document.getElementById('pet-tbody').innerHTML = filtered.length ? filtered.map((p) => `<tr>
     <td>${p.id}</td><td><strong>${esc(p.name)}</strong></td><td>${esc(p.species)}</td><td>${esc(p.breed)}</td>
     <td>${statusBadge(p.status)}</td><td>${p.intake}</td>
-    <td><button class="btn" data-pet-id="${esc(p.id)}">View</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty">No pets found.</td></tr>`;
+    <td><button class="btn" data-pet-id="${esc(p.id)}">View</button> <button class="btn" data-pet-edit="${esc(p.id)}">Edit</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty">No pets found.</td></tr>`;
 
   document.querySelectorAll('[data-pet-id]').forEach(btn => btn.onclick = () => openPetDetail(btn.dataset.petId));
+  document.querySelectorAll('[data-pet-edit]').forEach(btn => btn.onclick = () => openPetForm(btn.dataset.petEdit));
 }
 
 function openPetDetail(petId){
@@ -422,9 +448,67 @@ function openPetDetail(petId){
     <h3>${esc(p.name)} (${p.id})</h3>
     ${[
       ['Species',p.species],['Breed',p.breed],['Sex',p.sex],['Color',p.color],['Birth',p.birth],
-      ['Intake',p.intake],['Status',p.status],['Sterilized',p.sterilized],['Special needs',p.special]
+      ['Intake',p.intake],['Status',p.status],['Status change reason',p.statusReason],['Health flag',p.healthFlag],['Sterilized',p.sterilized],['Special needs',p.special]
     ].map(([k,v]) => `<div class="field"><span class="field-label">${k}</span><span>${esc(v || '—')}</span></div>`).join('')}
+    <div class="form-actions"><button class="btn" data-close>Close</button><button class="btn btn-primary" id="pet-edit-quick">Edit</button></div>
   `);
+  document.getElementById('pet-edit-quick').onclick = () => openPetForm(p.id);
+}
+
+function openPetForm(petId = null) {
+  const p = petId ? uiState.pets.find(pet => pet.id === petId) : null;
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>${p ? 'Edit pet' : 'New pet'}</h3>
+    <div class="form-row"><label class="form-label">Name</label><input id="pet-name" class="input" style="width:100%" value="${esc(p?.name || '')}"></div>
+    <div class="grid-2">
+      <div class="form-row"><label class="form-label">Species</label><input id="pet-species" class="input" style="width:100%" value="${esc(p?.species || '')}"></div>
+      <div class="form-row"><label class="form-label">Breed</label><input id="pet-breed" class="input" style="width:100%" value="${esc(p?.breed || '')}"></div>
+    </div>
+    <div class="grid-2">
+      <div class="form-row"><label class="form-label">Health flag</label><input id="pet-health" class="input" style="width:100%" value="${esc(p?.healthFlag || '')}" placeholder="e.g. allergy monitor"></div>
+      <div class="form-row"><label class="form-label">Status</label><select id="pet-status" class="select" style="width:100%">${['Available','Reserved','Medical hold','Adopted'].map(s=>`<option ${p?.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row"><label class="form-label">Status change reason</label><textarea id="pet-status-reason" class="textarea">${esc(p?.statusReason || '')}</textarea></div>
+    <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="pet-form-submit">${p ? 'Save changes' : 'Create pet'}</button></div>
+  `);
+  document.getElementById('pet-form-submit').onclick = async () => {
+    const payload = {
+      name: document.getElementById('pet-name').value.trim(),
+      species: document.getElementById('pet-species').value.trim(),
+      breed: document.getElementById('pet-breed').value.trim(),
+      healthFlag: document.getElementById('pet-health').value.trim(),
+      status: document.getElementById('pet-status').value,
+      statusReason: document.getElementById('pet-status-reason').value.trim()
+    };
+    if (!payload.name || !payload.species || !payload.breed) return showToast('Please complete required fields.', 'danger');
+    const previous = structuredClone(uiState.pets);
+    if (p) {
+      uiState.pets = uiState.pets.map(item => item.id === p.id ? { ...item, ...payload } : item);
+    } else {
+      uiState.pets.unshift({ id: nextTempId('PET'), intake: new Date().toISOString().slice(0,10), ...payload });
+    }
+    renderPets(uiState);
+    renderDashboard(uiState);
+    try {
+      if (p) {
+        await petsApi.updatePet(p.id, payload);
+        addActivity(`Pet ${p.name} profile updated`, 'amber');
+      } else {
+        await petsApi.createPet(payload);
+        addActivity(`Pet ${payload.name} added to shelter`, 'green');
+      }
+      await refreshPets();
+      closeModal();
+      showToast(`Pet ${p ? 'updated' : 'created'} successfully.`, 'success');
+    } catch {
+      uiState.pets = previous;
+      renderPets(uiState);
+      renderDashboard(uiState);
+      closeModal();
+      showToast('Saved locally. API sync unavailable in demo mode.', 'info');
+    }
+  };
 }
 
 function renderApplications(state) {
@@ -440,6 +524,66 @@ function renderApplications(state) {
 
   document.querySelectorAll('[data-app-view]').forEach(btn => btn.onclick = () => openAppDetail(btn.dataset.appView));
   document.querySelectorAll('[data-app-review]').forEach(btn => btn.onclick = () => openReviewModal(btn.dataset.appReview));
+}
+
+function computeApplicantStats(state) {
+  const map = new Map();
+  state.applications.forEach((app) => {
+    const key = String(app.applicantId || app.applicant_id || app.applicant || 'Unknown');
+    if (!map.has(key)) {
+      map.set(key, {
+        id: app.applicantId || app.applicant_id || key,
+        name: app.applicant || app.applicant_name || `Applicant ${key}`,
+        email: app.applicantEmail || app.applicant_email || '—',
+        applications: []
+      });
+    }
+    map.get(key).applications.push(app);
+  });
+  return Array.from(map.values()).map((item) => {
+    const approved = item.applications.filter(a => String(a.status).toLowerCase().includes('approved')).length;
+    const total = item.applications.length;
+    return { ...item, total, approved, passRate: total ? `${Math.round((approved / total) * 100)}%` : '0%' };
+  });
+}
+
+function renderApplicants(state) {
+  const q = (document.getElementById('applicant-search')?.value || '').toLowerCase();
+  const source = state.applicants.length ? state.applicants : computeApplicantStats(state);
+  const list = source
+    .map((entry) => {
+      const apps = entry.applications || state.applications.filter(a => String(a.applicantId || a.applicant_id || a.applicant) === String(entry.id));
+      const approved = entry.approved ?? apps.filter(a => String(a.status).toLowerCase().includes('approved')).length;
+      const total = entry.total ?? apps.length;
+      return { ...entry, applications: apps, approved, total, passRate: entry.passRate || (total ? `${Math.round((approved / total) * 100)}%` : '0%') };
+    })
+    .filter(item => !q || String(item.name).toLowerCase().includes(q) || String(item.email).toLowerCase().includes(q));
+  document.getElementById('applicant-tbody').innerHTML = list.length ? list.map((a) => `
+    <tr>
+      <td>${esc(a.id)}</td><td><strong>${esc(a.name)}</strong></td><td>${esc(a.email || '—')}</td><td>${a.total}</td><td>${a.approved}</td><td>${a.passRate}</td>
+      <td><button class="btn" data-applicant-view="${esc(a.id)}">View</button></td>
+    </tr>
+  `).join('') : `<tr><td colspan="7" class="empty">No applicants found.</td></tr>`;
+  document.querySelectorAll('[data-applicant-view]').forEach(btn => btn.onclick = () => openApplicantDetail(btn.dataset.applicantView));
+}
+
+function openApplicantDetail(applicantId) {
+  const appRows = uiState.applications.filter(a => String(a.applicantId || a.applicant_id || a.applicant) === String(applicantId));
+  const first = appRows[0];
+  const applicantName = first?.applicant || first?.applicant_name || `Applicant ${applicantId}`;
+  const approved = appRows.filter(a => String(a.status).toLowerCase().includes('approved')).length;
+  const passRate = appRows.length ? `${Math.round((approved / appRows.length) * 100)}%` : '0%';
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>${esc(applicantName)} (${esc(applicantId)})</h3>
+    <div class="field"><span class="field-label">Historical applications</span><span>${appRows.length}</span></div>
+    <div class="field"><span class="field-label">Approval rate</span><span>${passRate}</span></div>
+    <div style="margin-top:10px" class="help">Application history</div>
+    <table style="margin-top:6px"><thead><tr><th>ID</th><th>Pet</th><th>Date</th><th>Status</th></tr></thead><tbody>
+      ${appRows.map(a=>`<tr><td>${esc(a.id)}</td><td>${esc(a.pet)}</td><td>${esc(a.date)}</td><td>${statusBadge(a.status)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty">No applications.</td></tr>`}
+    </tbody></table>
+    <div class="form-actions"><button class="btn" data-close>Close</button></div>
+  `);
 }
 
 function openAppDetail(applicationId) {
@@ -602,7 +746,8 @@ async function submitNewAdoption() {
 
 function renderFollowups(state) {
   const body = document.getElementById('followup-tbody');
-  body.innerHTML = state.followups.length ? state.followups.map(f => `<tr><td>${f.id}</td><td>${f.adoptionId}</td><td>${f.date}</td><td>${esc(f.type)}</td><td>${statusBadge(f.result)}</td><td>${esc(f.petCondition)}</td></tr>`).join('') : `<tr><td colspan="6" class="empty">No follow-ups yet.</td></tr>`;
+  body.innerHTML = state.followups.length ? state.followups.map(f => `<tr><td>${f.id}</td><td>${f.adoptionId}</td><td>${f.date}</td><td>${esc(f.type)}</td><td>${statusBadge(f.result)}</td><td>${esc(f.petCondition)}</td><td><button class="btn" data-fu-edit="${esc(f.id)}">Edit</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty">No follow-ups yet.</td></tr>`;
+  document.querySelectorAll('[data-fu-edit]').forEach(btn => btn.onclick = () => openFollowupEdit(btn.dataset.fuEdit));
 }
 
 function openNewFollowupModal() {
@@ -614,6 +759,8 @@ function openNewFollowupModal() {
     <div class="form-row"><label class="form-label">Type</label><select id="fu-type" class="select" style="width:100%"><option>Phone</option><option>Home visit</option><option>Video call</option></select></div>
     <div class="form-row"><label class="form-label">Pet condition</label><textarea id="fu-condition" class="textarea"></textarea></div>
     <div class="form-row"><label class="form-label">Adopter feedback</label><textarea id="fu-feedback" class="textarea"></textarea></div>
+    <div class="form-row"><label class="form-label">Result status</label><select id="fu-result" class="select" style="width:100%"><option>Completed</option><option>Needs attention</option><option>Escalated</option></select></div>
+    <div class="form-row"><label class="form-label">Staff note</label><textarea id="fu-note" class="textarea"></textarea></div>
     <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="fu-submit">Add</button></div>
   `);
   document.getElementById('fu-submit').onclick = submitNewFollowup;
@@ -625,6 +772,8 @@ async function submitNewFollowup() {
   const type = document.getElementById('fu-type').value;
   const petCondition = document.getElementById('fu-condition').value.trim();
   const feedback = document.getElementById('fu-feedback').value.trim();
+  const result = document.getElementById('fu-result').value;
+  const staffNote = document.getElementById('fu-note').value.trim();
   if (!adoptionId || !date || !petCondition || !feedback) return showToast('Please fill all follow-up fields.', 'danger');
 
   const snapshot = structuredClone(uiState.followups);
@@ -632,7 +781,15 @@ async function submitNewFollowup() {
   renderFollowups(uiState);
 
   try {
-    await followupsApi.createFollowup({ adoptionId, date, type, petCondition, feedback });
+    await followupsApi.createFollowup({
+      adoptionId,
+      date,
+      type,
+      petCondition,
+      feedback,
+      resultStatus: result || ENUMS.followupStatus.COMPLETED,
+      staffNote: staffNote || 'Pending sync'
+    });
     await refreshFollowups();
     closeModal();
     addActivity(`Follow-up completed for ${adoptionId}`, 'blue');
@@ -644,17 +801,181 @@ async function submitNewFollowup() {
   }
 }
 
+function openFollowupEdit(followupId) {
+  const item = uiState.followups.find(f => String(f.id) === String(followupId));
+  if (!item) return;
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>Edit follow-up ${esc(item.id)}</h3>
+    <div class="form-row"><label class="form-label">Result status</label><select id="efu-result" class="select" style="width:100%">${['Completed','Needs attention','Escalated'].map(s=>`<option ${item.result===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-row"><label class="form-label">Staff note</label><textarea id="efu-note" class="textarea">${esc(item.staffNote || '')}</textarea></div>
+    <div class="form-row"><label class="form-label">Pet condition</label><textarea id="efu-condition" class="textarea">${esc(item.petCondition || '')}</textarea></div>
+    <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="efu-save">Save</button></div>
+  `);
+  document.getElementById('efu-save').onclick = async () => {
+    const patch = {
+      result: document.getElementById('efu-result').value,
+      staffNote: document.getElementById('efu-note').value.trim(),
+      petCondition: document.getElementById('efu-condition').value.trim()
+    };
+    uiState.followups = uiState.followups.map(f => String(f.id) === String(item.id) ? { ...f, ...patch } : f);
+    renderFollowups(uiState);
+    try {
+      await followupsApi.updateFollowup(item.id, { resultStatus: patch.result, staffNote: patch.staffNote, petCondition: patch.petCondition });
+      closeModal();
+      showToast('Follow-up updated.', 'success');
+    } catch {
+      closeModal();
+      showToast('Follow-up updated locally (demo mode).', 'info');
+    }
+  };
+}
+
 function renderMedical(state) {
-  document.getElementById('medical-tbody').innerHTML = state.medical.map(m => `<tr><td>${esc(m.pet)}</td><td>${m.date}</td><td>${esc(m.type)}</td><td>${esc(m.vet)}</td></tr>`).join('');
-  document.getElementById('vax-tbody').innerHTML = state.vaccinations.map(v => {
+  document.getElementById('medical-tbody').innerHTML = state.medical.filter(m => !m.deleted).map(m => `<tr><td>${esc(m.pet)}</td><td>${m.date}</td><td>${esc(m.type)}</td><td>${esc(m.vet)}</td><td><button class="btn" data-med-edit="${esc(m.id)}">Edit</button> <button class="btn btn-danger" data-med-del="${esc(m.id)}">Delete</button></td></tr>`).join('');
+  document.getElementById('vax-tbody').innerHTML = state.vaccinations.filter(v => !v.deleted).map(v => {
     const danger = v.due <= new Date().toISOString().slice(0,10);
-    return `<tr><td>${esc(v.pet)}</td><td>${esc(v.vaccine)}</td><td style="color:${danger ? '#a23232' : 'inherit'}">${v.due}</td></tr>`;
+    return `<tr><td>${esc(v.pet)}</td><td>${esc(v.vaccine)}</td><td style="color:${danger ? '#a23232' : 'inherit'}">${v.due}</td><td><button class="btn" data-vax-edit="${esc(v.id)}">Edit</button> <button class="btn btn-danger" data-vax-del="${esc(v.id)}">Delete</button></td></tr>`;
   }).join('');
+  document.querySelectorAll('[data-med-edit]').forEach(btn => btn.onclick = () => openMedicalForm('medical', btn.dataset.medEdit));
+  document.querySelectorAll('[data-vax-edit]').forEach(btn => btn.onclick = () => openMedicalForm('vax', btn.dataset.vaxEdit));
+  document.querySelectorAll('[data-med-del]').forEach(btn => btn.onclick = () => softDeleteMedical('medical', btn.dataset.medDel));
+  document.querySelectorAll('[data-vax-del]').forEach(btn => btn.onclick = () => softDeleteMedical('vax', btn.dataset.vaxDel));
+}
+
+function openMedicalForm(kind, id = null) {
+  const source = kind === 'medical' ? uiState.medical : uiState.vaccinations;
+  const current = id ? source.find(x => String(x.id) === String(id)) : null;
+  const petOptions = uiState.pets.map(p => `<option value="${esc(p.name)}" ${current?.pet === p.name ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>${current ? 'Edit' : 'New'} ${kind === 'medical' ? 'medical' : 'vaccination'} record</h3>
+    <div class="form-row"><label class="form-label">Pet</label><select id="med-pet" class="select" style="width:100%"><option value="">Select</option>${petOptions}</select></div>
+    <div class="form-row"><label class="form-label">${kind === 'medical' ? 'Visit date' : 'Due date'}</label><input id="med-date" class="input" type="date" style="width:100%" value="${current?.date || current?.due || new Date().toISOString().slice(0,10)}"></div>
+    <div class="form-row"><label class="form-label">${kind === 'medical' ? 'Type' : 'Vaccine'}</label><input id="med-type" class="input" style="width:100%" value="${esc(current?.type || current?.vaccine || '')}"></div>
+    <div class="form-row"><label class="form-label">${kind === 'medical' ? 'Vet' : 'Notes'}</label><input id="med-vet" class="input" style="width:100%" value="${esc(current?.vet || current?.notes || '')}"></div>
+    <div class="form-row"><label class="form-label">备注（可编辑）</label><textarea id="med-note" class="textarea">${esc(current?.notes || '')}</textarea></div>
+    <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="med-save">Save</button></div>
+  `);
+  document.getElementById('med-save').onclick = async () => {
+    const payload = {
+      pet: document.getElementById('med-pet').value,
+      date: document.getElementById('med-date').value,
+      due: document.getElementById('med-date').value,
+      type: document.getElementById('med-type').value.trim(),
+      vaccine: document.getElementById('med-type').value.trim(),
+      vet: document.getElementById('med-vet').value.trim(),
+      notes: document.getElementById('med-note').value.trim(),
+      deleted: false
+    };
+    if (!payload.pet || !payload.type) return showToast('Please fill required fields.', 'danger');
+    const key = kind === 'medical' ? 'medical' : 'vaccinations';
+    const before = structuredClone(uiState[key]);
+    if (current) {
+      uiState[key] = uiState[key].map(row => String(row.id) === String(current.id) ? { ...row, ...payload } : row);
+    } else {
+      uiState[key].unshift({ id: nextTempId(kind === 'medical' ? 'MED' : 'VAX'), ...payload });
+    }
+    renderMedical(uiState);
+    closeModal();
+    showToast(`${kind === 'medical' ? 'Medical' : 'Vaccination'} record saved.`, 'success');
+    try {
+      if (kind === 'medical') {
+        if (current) await medicalApi.updateMedicalRecord(current.id, payload);
+        else await medicalApi.createMedicalRecord(payload);
+      } else {
+        if (current) await medicalApi.updateVaccination(current.id, payload);
+        else await medicalApi.createVaccination(payload);
+      }
+      await refreshMedical();
+    } catch {
+      uiState[key] = before;
+      renderMedical(uiState);
+      showToast('API sync unavailable; local change rolled back.', 'info');
+    }
+  };
+}
+
+async function softDeleteMedical(kind, id) {
+  const key = kind === 'medical' ? 'medical' : 'vaccinations';
+  const previous = structuredClone(uiState[key]);
+  uiState[key] = uiState[key].map(item => String(item.id) === String(id) ? { ...item, deleted: true, notes: `${item.notes || ''} [soft-deleted]`.trim() } : item);
+  renderMedical(uiState);
+  showToast('Record soft-deleted.', 'success');
+  try {
+    if (kind === 'medical') await medicalApi.deleteMedicalRecord(id);
+    else await medicalApi.deleteVaccination(id);
+    await refreshMedical();
+  } catch {
+    uiState[key] = previous;
+    renderMedical(uiState);
+    showToast('Soft delete stored locally only.', 'info');
+  }
 }
 
 function renderVolunteers(state) {
   document.getElementById('volunteer-tbody').innerHTML = state.volunteers.map(v => `<tr><td><strong>${esc(v.name)}</strong></td><td>${esc(v.email)}</td><td>${v.joined}</td><td>${statusBadge(v.status)}</td><td>${esc(v.pets)}</td></tr>`).join('');
-  document.getElementById('assign-tbody').innerHTML = state.assignments.map(a => `<tr><td>${a.id}</td><td>${esc(a.volunteer)}</td><td>${esc(a.pet)}</td><td>${esc(a.shift)}</td><td>${esc(a.task)}</td><td>${statusBadge(a.status)}</td></tr>`).join('');
+  document.getElementById('assign-tbody').innerHTML = state.assignments.map(a => `<tr><td>${a.id}</td><td>${esc(a.volunteer)}</td><td>${esc(a.pet)}</td><td>${esc(a.shift)}</td><td>${esc(a.task)}</td><td>${statusBadge(a.status)}</td><td><button class="btn" data-asg-edit="${esc(a.id)}">Shift</button> <button class="btn btn-success" data-asg-done="${esc(a.id)}">Complete</button></td></tr>`).join('');
+  document.querySelectorAll('[data-asg-edit]').forEach(btn => btn.onclick = () => openAssignmentForm(btn.dataset.asgEdit));
+  document.querySelectorAll('[data-asg-done]').forEach(btn => btn.onclick = () => markAssignmentDone(btn.dataset.asgDone));
+}
+
+function openAssignmentForm(assignmentId = null) {
+  const item = assignmentId ? uiState.assignments.find(a => String(a.id) === String(assignmentId)) : null;
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>${item ? 'Edit assignment shift' : 'Assign volunteer task'}</h3>
+    <div class="form-row"><label class="form-label">Volunteer</label><select id="asg-vol" class="select" style="width:100%"><option value="">Select</option>${uiState.volunteers.map(v=>`<option ${item?.volunteer===v.name?'selected':''}>${esc(v.name)}</option>`).join('')}</select></div>
+    <div class="form-row"><label class="form-label">Pet</label><select id="asg-pet" class="select" style="width:100%"><option value="">Select</option>${uiState.pets.map(p=>`<option ${item?.pet===p.name?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+    <div class="form-row"><label class="form-label">Shift</label><select id="asg-shift" class="select" style="width:100%">${['Morning','Afternoon','Evening'].map(s=>`<option ${item?.shift===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-row"><label class="form-label">Task</label><input id="asg-task" class="input" style="width:100%" value="${esc(item?.task || '')}"></div>
+    <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="asg-save">Save</button></div>
+  `);
+  document.getElementById('asg-save').onclick = async () => {
+    const payload = {
+      volunteer: document.getElementById('asg-vol').value,
+      pet: document.getElementById('asg-pet').value,
+      shift: document.getElementById('asg-shift').value,
+      task: document.getElementById('asg-task').value.trim(),
+      status: item?.status || 'Pending'
+    };
+    if (!payload.volunteer || !payload.pet || !payload.task) return showToast('Please fill assignment fields.', 'danger');
+    const snapshot = structuredClone(uiState.assignments);
+    if (item) {
+      uiState.assignments = uiState.assignments.map(a => String(a.id) === String(item.id) ? { ...a, ...payload } : a);
+    } else {
+      uiState.assignments.unshift({ id: nextTempId('ASG'), ...payload });
+    }
+    renderVolunteers(uiState);
+    closeModal();
+    showToast('Assignment saved.', 'success');
+    try {
+      if (item) await volunteersApi.updateAssignment(item.id, payload);
+      else await volunteersApi.createAssignment(payload);
+      await refreshVolunteers();
+    } catch {
+      uiState.assignments = snapshot;
+      renderVolunteers(uiState);
+      showToast('Saved locally only (demo mode).', 'info');
+    }
+  };
+}
+
+async function markAssignmentDone(assignmentId) {
+  const snapshot = structuredClone(uiState.assignments);
+  const item = uiState.assignments.find(a => String(a.id) === String(assignmentId));
+  if (!item) return;
+  uiState.assignments = uiState.assignments.map(a => String(a.id) === String(assignmentId) ? { ...a, status: 'Completed' } : a);
+  renderVolunteers(uiState);
+  showToast('Assignment marked complete.', 'success');
+  try {
+    await volunteersApi.updateAssignment(assignmentId, { status: 'Completed' });
+    await refreshVolunteers();
+  } catch {
+    uiState.assignments = snapshot;
+    renderVolunteers(uiState);
+    showToast('Completion saved locally only.', 'info');
+  }
 }
 
 function openModal(html) {
@@ -669,6 +990,7 @@ function renderAll(){
   renderDashboard(uiState);
   renderPets(uiState);
   renderApplications(uiState);
+  renderApplicants(uiState);
   renderAdoptions(uiState);
   renderFollowups(uiState);
   renderMedical(uiState);
@@ -676,33 +998,116 @@ function renderAll(){
 }
 
 async function refreshPets() {
-  uiState.pets = normalizeList(await petsApi.listPets(), 'pets');
+  uiState.pets = normalizeList(await petsApi.listPets(), 'pets').map(p => ({
+    id: String(p.id ?? p.pet_id),
+    name: p.name,
+    species: p.species,
+    breed: p.breed,
+    sex: p.sex,
+    color: p.color,
+    birth: p.birth ?? p.estimated_birth_date,
+    intake: p.intake ?? p.intake_date,
+    status: p.status ? (p.status[0].toUpperCase() + p.status.slice(1)) : 'Available',
+    sterilized: p.sterilized ?? p.is_sterilized,
+    special: p.special ?? p.special_needs,
+    healthFlag: p.health_flag ?? '',
+    statusReason: p.status_change_reason ?? ''
+  }));
   renderDashboard(uiState);
   renderPets(uiState);
 }
 async function refreshApplications() {
-  uiState.applications = normalizeList(await applicationsApi.listApplications(), 'applications');
+  uiState.applications = normalizeList(await applicationsApi.listApplications(), 'applications').map(a => ({
+    id: String(a.id ?? a.application_id),
+    applicantId: String(a.applicantId ?? a.applicant_id),
+    applicant: a.applicant || `Applicant ${a.applicant_id}`,
+    petId: String(a.petId ?? a.pet_id),
+    pet: a.pet || `Pet ${a.pet_id}`,
+    date: a.date ?? a.application_date,
+    status: a.status ? (a.status[0].toUpperCase() + a.status.slice(1)) : 'Pending',
+    reviewer: a.reviewer ?? a.reviewer_name ?? '—',
+    reason: a.reason ?? '—',
+    decision: a.decision ?? a.decision_note ?? '—'
+  }));
   renderDashboard(uiState);
   renderApplications(uiState);
+  renderApplicants(uiState);
 }
 async function refreshAdoptions() {
-  uiState.adoptions = normalizeList(await adoptionsApi.listAdoptions(), 'adoptions');
+  uiState.adoptions = normalizeList(await adoptionsApi.listAdoptions(), 'adoptions').map(a => ({
+    id: String(a.id ?? a.adoption_id),
+    applicationId: String(a.applicationId ?? a.application_id),
+    applicant: a.applicant || `Applicant`,
+    pet: a.pet || `Pet`,
+    adoptionDate: a.adoptionDate ?? a.adoption_date,
+    fee: a.fee ?? a.final_adoption_fee ?? 0,
+    handoverNote: a.handoverNote ?? a.handover_note ?? '—'
+  }));
   renderDashboard(uiState);
   renderAdoptions(uiState);
 }
 async function refreshFollowups() {
-  uiState.followups = normalizeList(await followupsApi.listFollowups(), 'followups');
+  uiState.followups = normalizeList(await followupsApi.listFollowups(), 'followups').map(f => ({
+    id: String(f.id ?? f.followup_id),
+    adoptionId: String(f.adoptionId ?? f.adoption_id),
+    date: f.date ?? f.followup_date,
+    type: f.type ?? f.followup_type,
+    petCondition: f.petCondition ?? f.pet_condition,
+    feedback: f.feedback ?? f.adopter_feedback,
+    result: f.result ?? f.result_status ?? 'Completed',
+    staffNote: f.staffNote ?? f.staff_note ?? ''
+  }));
   renderFollowups(uiState);
 }
 async function refreshMedical() {
-  uiState.medical = normalizeList(await medicalApi.listMedicalRecords(), 'medical');
-  uiState.vaccinations = normalizeList(await medicalApi.listVaccinations(), 'vaccinations');
+  uiState.medical = normalizeList(await medicalApi.listMedicalRecords(), 'medical').map(m => ({
+    id: String(m.id ?? m.record_id),
+    pet: m.pet ?? `Pet ${m.pet_id}`,
+    date: m.date ?? m.visit_date,
+    type: m.type ?? m.record_type,
+    vet: m.vet ?? m.vet_name,
+    notes: m.notes
+  }));
+  uiState.vaccinations = normalizeList(await medicalApi.listVaccinations(), 'vaccinations').map(v => ({
+    id: String(v.id ?? v.vaccination_id),
+    pet: v.pet ?? `Pet ${v.pet_id}`,
+    vaccine: v.vaccine ?? v.vaccine_name,
+    due: v.due ?? v.next_due_date,
+    notes: v.notes
+  }));
   renderMedical(uiState);
 }
 async function refreshVolunteers() {
-  uiState.volunteers = normalizeList(await volunteersApi.listVolunteers(), 'volunteers');
-  uiState.assignments = normalizeList(await volunteersApi.listAssignments(), 'assignments');
+  uiState.volunteers = normalizeList(await volunteersApi.listVolunteers(), 'volunteers').map(v => ({
+    id: String(v.id ?? v.volunteer_id),
+    name: v.name ?? v.full_name,
+    email: v.email,
+    joined: v.joined ?? v.join_date,
+    status: v.status || 'Active',
+    pets: v.pets || ''
+  }));
+  uiState.assignments = normalizeList(await volunteersApi.listAssignments(), 'assignments').map(a => ({
+    id: String(a.id ?? a.assignment_id),
+    volunteer: a.volunteer ?? `Volunteer ${a.volunteer_id}`,
+    pet: a.pet ?? `Pet ${a.pet_id}`,
+    shift: a.shift,
+    task: a.task ?? a.task_type,
+    status: a.status || 'Pending'
+  }));
   renderVolunteers(uiState);
+}
+async function refreshApplicants() {
+  try {
+    const rows = normalizeList(await applicationsApi.listApplicants(), 'applicants');
+    uiState.applicants = rows.map(a => ({
+      id: String(a.id ?? a.applicant_id),
+      name: a.name ?? a.full_name,
+      email: a.email
+    }));
+  } catch {
+    uiState.applicants = [];
+  }
+  renderApplicants(uiState);
 }
 
 async function initializeData() {
@@ -713,7 +1118,8 @@ async function initializeData() {
       refreshAdoptions(),
       refreshFollowups(),
       refreshMedical(),
-      refreshVolunteers()
+      refreshVolunteers(),
+      refreshApplicants()
     ]);
   } catch (error) {
     showToast(`Initial data load failed: ${error.message}`, 'danger');
@@ -730,10 +1136,15 @@ window.addEventListener('hashchange', () => {
 ['pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('change', () => renderPets(uiState)));
 ['app-search','app-status-filter'].forEach(id => document.getElementById(id).addEventListener('input', () => renderApplications(uiState)));
 document.getElementById('app-status-filter').addEventListener('change', () => renderApplications(uiState));
+document.getElementById('applicant-search').addEventListener('input', () => renderApplicants(uiState));
 
+document.getElementById('btn-new-pet').onclick = () => openPetForm();
 document.getElementById('btn-new-app').onclick = openNewApplicationModal;
 document.getElementById('btn-new-adoption').onclick = openNewAdoptionModal;
 document.getElementById('btn-new-followup').onclick = openNewFollowupModal;
+document.getElementById('btn-new-medical').onclick = () => openMedicalForm('medical');
+document.getElementById('btn-new-vax').onclick = () => openMedicalForm('vax');
+document.getElementById('btn-new-assignment').onclick = () => openAssignmentForm();
 document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
 
 window.addEventListener('keydown', (e) => {
