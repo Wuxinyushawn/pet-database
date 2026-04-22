@@ -146,7 +146,7 @@ tr:hover td{background:var(--bg-secondary)}
       <div class="section">
         <div class="toolbar">
           <input class="input" id="pet-search" placeholder="Search by name or breed">
-          <select class="select" id="pet-status-filter"><option value="">All statuses</option><option>Available</option><option>Reserved</option><option>Medical hold</option><option>Adopted</option></select>
+          <select class="select" id="pet-status-filter"></select>
           <select class="select" id="pet-species-filter"><option value="">All species</option><option>Dog</option><option>Cat</option><option>Rabbit</option></select>
         </div>
         <table>
@@ -165,7 +165,7 @@ tr:hover td{background:var(--bg-secondary)}
         </div>
         <div class="toolbar">
           <input class="input" id="app-search" placeholder="Search applicant or pet">
-          <select class="select" id="app-status-filter"><option value="">All statuses</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
+          <select class="select" id="app-status-filter"></select>
         </div>
         <table>
           <thead><tr><th>ID</th><th>Applicant</th><th>Pet</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
@@ -262,6 +262,65 @@ const followupsApi = createFollowupsService(apiClient);
 const medicalApi = createMedicalService(apiClient);
 const volunteersApi = createVolunteersService(apiClient);
 
+const ENUMS = {
+  petStatus: {
+    AVAILABLE: 'Available',
+    RESERVED: 'Reserved',
+    MEDICAL_HOLD: 'MedicalHold',
+    ADOPTED: 'Adopted'
+  },
+  applicationStatus: {
+    PENDING: 'Pending',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected'
+  },
+  assignmentStatus: {
+    ACTIVE: 'Active',
+    COMPLETED: 'Completed',
+    CANCELLED: 'Cancelled'
+  },
+  followupStatus: {
+    SCHEDULED: 'Scheduled',
+    COMPLETED: 'Completed',
+    MISSED: 'Missed'
+  }
+};
+
+const STATUS_META = {
+  [ENUMS.petStatus.AVAILABLE]: { label: 'Available', badge: 'b-available' },
+  [ENUMS.petStatus.RESERVED]: { label: 'Reserved', badge: 'b-reserved' },
+  [ENUMS.petStatus.MEDICAL_HOLD]: { label: 'Medical hold', badge: 'b-hold' },
+  [ENUMS.petStatus.ADOPTED]: { label: 'Adopted', badge: 'b-adopted' },
+  [ENUMS.applicationStatus.PENDING]: { label: 'Pending', badge: 'b-pending' },
+  [ENUMS.applicationStatus.APPROVED]: { label: 'Approved', badge: 'b-approved' },
+  [ENUMS.applicationStatus.REJECTED]: { label: 'Rejected', badge: 'b-rejected' },
+  [ENUMS.followupStatus.SCHEDULED]: { label: 'Scheduled', badge: 'b-pending' },
+  [ENUMS.followupStatus.COMPLETED]: { label: 'Completed', badge: 'b-done' },
+  [ENUMS.followupStatus.MISSED]: { label: 'Missed', badge: 'b-rejected' },
+  [ENUMS.assignmentStatus.ACTIVE]: { label: 'Active', badge: 'b-active' },
+  [ENUMS.assignmentStatus.COMPLETED]: { label: 'Completed', badge: 'b-done' },
+  [ENUMS.assignmentStatus.CANCELLED]: { label: 'Cancelled', badge: 'b-inactive' },
+  Done: { label: 'Done', badge: 'b-done' },
+  Inactive: { label: 'Inactive', badge: 'b-inactive' }
+};
+
+function populateStatusFilters() {
+  const petFilter = document.getElementById('pet-status-filter');
+  petFilter.innerHTML = `<option value="">All statuses</option>${Object.values(ENUMS.petStatus).map(status => `<option value="${status}">${STATUS_META[status].label}</option>`).join('')}`;
+
+  const appFilter = document.getElementById('app-status-filter');
+  appFilter.innerHTML = `<option value="">All statuses</option>${Object.values(ENUMS.applicationStatus).map(status => `<option value="${status}">${STATUS_META[status].label}</option>`).join('')}`;
+}
+
+function normalizeStatusValue(value) {
+  if (value === 'Medical hold') return ENUMS.petStatus.MEDICAL_HOLD;
+  return value;
+}
+
+function statusLabel(value) {
+  return STATUS_META[value]?.label || value;
+}
+
 const uiState = {
   pets: [],
   applications: [],
@@ -316,8 +375,8 @@ function addActivity(text, type='amber') {
 
 function renderDashboard(state) {
   const total = state.pets.length;
-  const available = state.pets.filter(p => p.status === 'Available').length;
-  const pending = state.applications.filter(a => a.status === 'Pending').length;
+  const available = state.pets.filter(p => normalizeStatusValue(p.status) === ENUMS.petStatus.AVAILABLE).length;
+  const pending = state.applications.filter(a => normalizeStatusValue(a.status) === ENUMS.applicationStatus.PENDING).length;
   const adoptions = state.adoptions.length;
   document.getElementById('dashboard-cards').innerHTML = [
     {k:'Total pets',v:total,s:'in shelter system'},
@@ -329,7 +388,7 @@ function renderDashboard(state) {
   const feed = document.getElementById('activity-feed');
   feed.innerHTML = state.activity.map(a => `<div class="activity"><div class="dot dot-${a.type}"></div><div><div>${esc(a.text)}</div><div class="help">${esc(a.time)}</div></div></div>`).join('') || '<div class="empty">No activity yet.</div>';
 
-  const counts = ['Available','Reserved','Medical hold','Adopted'].map(s => ({s, c: state.pets.filter(p => p.status === s).length}));
+  const counts = Object.values(ENUMS.petStatus).map(s => ({s, c: state.pets.filter(p => normalizeStatusValue(p.status) === s).length}));
   document.getElementById('pet-status-overview').innerHTML = counts.map(it => {
     const pct = total ? `${Math.round(it.c / total * 100)}%` : '0%';
     return `<tr><td>${statusBadge(it.s)}</td><td>${it.c}</td><td>${pct}</td></tr>`;
@@ -337,19 +396,16 @@ function renderDashboard(state) {
 }
 
 function statusBadge(s) {
-  const map = {
-    'Available':'b-available','Reserved':'b-reserved','Adopted':'b-adopted','Medical hold':'b-hold',
-    'Pending':'b-pending','Approved':'b-approved','Rejected':'b-rejected','Done':'b-done','Completed':'b-done',
-    'Active':'b-active','Inactive':'b-inactive'
-  };
-  return badge(map[s] || '', s);
+  const normalized = normalizeStatusValue(s);
+  const meta = STATUS_META[normalized];
+  return badge(meta?.badge || '', statusLabel(normalized));
 }
 
 function renderPets(state) {
   const q = document.getElementById('pet-search').value.toLowerCase();
   const st = document.getElementById('pet-status-filter').value;
   const sp = document.getElementById('pet-species-filter').value;
-  const filtered = state.pets.filter(p => (!q || p.name.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q)) && (!st || p.status===st) && (!sp || p.species===sp));
+  const filtered = state.pets.filter(p => (!q || p.name.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q)) && (!st || normalizeStatusValue(p.status)===st) && (!sp || p.species===sp));
   document.getElementById('pet-tbody').innerHTML = filtered.length ? filtered.map((p) => `<tr>
     <td>${p.id}</td><td><strong>${esc(p.name)}</strong></td><td>${esc(p.species)}</td><td>${esc(p.breed)}</td>
     <td>${statusBadge(p.status)}</td><td>${p.intake}</td>
@@ -374,9 +430,9 @@ function openPetDetail(petId){
 function renderApplications(state) {
   const q = document.getElementById('app-search').value.toLowerCase();
   const st = document.getElementById('app-status-filter').value;
-  const list = state.applications.filter(a => (!q || a.applicant.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q)) && (!st || a.status === st));
+  const list = state.applications.filter(a => (!q || a.applicant.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q)) && (!st || normalizeStatusValue(a.status) === st));
   document.getElementById('app-tbody').innerHTML = list.length ? list.map(a => {
-    const action = a.status === 'Pending'
+    const action = normalizeStatusValue(a.status) === ENUMS.applicationStatus.PENDING
       ? `<button class="btn" data-app-view="${esc(a.id)}">View</button> <button class="btn btn-success" data-app-review="${esc(a.id)}">Review</button>`
       : `<button class="btn" data-app-view="${esc(a.id)}">View</button>`;
     return `<tr><td>${a.id}</td><td><strong>${esc(a.applicant)}</strong></td><td>${esc(a.pet)}</td><td>${a.date}</td><td>${statusBadge(a.status)}</td><td>${action}</td></tr>`;
@@ -410,8 +466,8 @@ function openReviewModal(applicationId) {
       <button class="btn btn-success" id="approve-btn">Approve</button>
     </div>
   `);
-  document.getElementById('reject-btn').onclick = () => submitReview(applicationId, 'Rejected');
-  document.getElementById('approve-btn').onclick = () => submitReview(applicationId, 'Approved');
+  document.getElementById('reject-btn').onclick = () => submitReview(applicationId, ENUMS.applicationStatus.REJECTED);
+  document.getElementById('approve-btn').onclick = () => submitReview(applicationId, ENUMS.applicationStatus.APPROVED);
 }
 
 async function submitReview(applicationId, decision) {
@@ -427,7 +483,7 @@ async function submitReview(applicationId, decision) {
     await refreshApplications();
     await refreshPets();
     closeModal();
-    addActivity(`${applicationId} ${decision.toLowerCase()} for review flow`, decision === 'Approved' ? 'green' : 'amber');
+    addActivity(`${applicationId} ${decision.toLowerCase()} for review flow`, decision === ENUMS.applicationStatus.APPROVED ? 'green' : 'amber');
     showToast(`Application ${applicationId} updated to ${decision}.`, 'success');
   } catch (error) {
     uiState.applications = snapshot;
@@ -437,7 +493,7 @@ async function submitReview(applicationId, decision) {
 }
 
 function openNewApplicationModal() {
-  const availablePets = uiState.pets.filter(p => p.status === 'Available');
+  const availablePets = uiState.pets.filter(p => normalizeStatusValue(p.status) === ENUMS.petStatus.AVAILABLE);
   openModal(`
     <button class="modal-close" data-close>✕</button>
     <h3>New adoption application</h3>
@@ -465,8 +521,8 @@ async function submitNewApplication() {
   const optimisticId = `TEMP-${Date.now()}`;
   const pet = uiState.pets.find(item => item.id === petId);
   const snapshot = { applications: structuredClone(uiState.applications), pets: structuredClone(uiState.pets) };
-  uiState.applications.unshift({ id: optimisticId, applicant, pet: pet?.name || petId, date: new Date().toISOString().slice(0, 10), status: 'Pending', reviewer: '—', reason: `${reason} (Housing: ${housing})`, decision: '—' });
-  uiState.pets = uiState.pets.map(item => item.id === petId ? { ...item, status: 'Reserved' } : item);
+  uiState.applications.unshift({ id: optimisticId, applicant, pet: pet?.name || petId, date: new Date().toISOString().slice(0, 10), status: ENUMS.applicationStatus.PENDING, reviewer: '—', reason: `${reason} (Housing: ${housing})`, decision: '—' });
+  uiState.pets = uiState.pets.map(item => item.id === petId ? { ...item, status: ENUMS.petStatus.RESERVED } : item);
   renderApplications(uiState);
   renderPets(uiState);
 
@@ -499,7 +555,7 @@ function renderAdoptions(state) {
 }
 
 function openNewAdoptionModal() {
-  const candidates = uiState.applications.filter(a => a.status === 'Approved' && !uiState.adoptions.some(ad => ad.applicationId === a.id));
+  const candidates = uiState.applications.filter(a => normalizeStatusValue(a.status) === ENUMS.applicationStatus.APPROVED && !uiState.adoptions.some(ad => ad.applicationId === a.id));
   openModal(`
     <button class="modal-close" data-close>✕</button>
     <h3>Create adoption record</h3>
@@ -525,7 +581,7 @@ async function submitNewAdoption() {
   const snapshot = { adoptions: structuredClone(uiState.adoptions), pets: structuredClone(uiState.pets) };
   uiState.adoptions.unshift({ id: `TEMP-${Date.now()}`, applicationId: appId, applicant: app.applicant, pet: app.pet, adoptionDate: date, fee, handoverNote: note });
   const targetPet = uiState.pets.find(p => p.name === app.pet);
-  if (targetPet) targetPet.status = 'Adopted';
+  if (targetPet) targetPet.status = ENUMS.petStatus.ADOPTED;
   renderAdoptions(uiState);
   renderPets(uiState);
 
@@ -572,7 +628,7 @@ async function submitNewFollowup() {
   if (!adoptionId || !date || !petCondition || !feedback) return showToast('Please fill all follow-up fields.', 'danger');
 
   const snapshot = structuredClone(uiState.followups);
-  uiState.followups.unshift({ id: `TEMP-${Date.now()}`, adoptionId, date, type, petCondition, feedback, result: 'Completed', staffNote: 'Pending sync' });
+  uiState.followups.unshift({ id: `TEMP-${Date.now()}`, adoptionId, date, type, petCondition, feedback, result: ENUMS.followupStatus.COMPLETED, staffNote: 'Pending sync' });
   renderFollowups(uiState);
 
   try {
@@ -697,6 +753,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+populateStatusFilters();
 if (location.hash && document.getElementById(`page-${location.hash.slice(1)}`)) go(location.hash.slice(1));
 initializeData();
 </script>
