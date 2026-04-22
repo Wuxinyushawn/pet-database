@@ -339,6 +339,7 @@ def get_followups(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
 
 
 @app.get("/medical-records")
+@app.get("/medical/records")
 def get_medical_records(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
         rows = conn.execute(
@@ -353,6 +354,7 @@ def get_medical_records(_: SessionUser = Depends(get_current_user)) -> dict[str,
 
 
 @app.get("/vaccinations")
+@app.get("/medical/vaccinations")
 def get_vaccinations(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
         rows = conn.execute(
@@ -380,6 +382,7 @@ def get_volunteers(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]
 
 
 @app.get("/assignments")
+@app.get("/volunteers/assignments")
 def get_assignments(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
         rows = conn.execute(

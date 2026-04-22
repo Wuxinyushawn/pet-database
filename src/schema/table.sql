@@ -177,7 +177,7 @@ CREATE TABLE FOLLOW_UP (
 -- 11. AUDIT_LOG
 -- append-only write operation audit trail
 -- =========================================
-CREATE TABLE AUDIT_LOG (
+CREATE TABLE IF NOT EXISTS AUDIT_LOG (
     audit_id INT PRIMARY KEY,
     actor_username VARCHAR(100) NOT NULL,
     actor_role VARCHAR(50) NOT NULL,
