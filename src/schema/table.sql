@@ -172,3 +172,19 @@ CREATE TABLE FOLLOW_UP (
     CONSTRAINT fk_follow_up_adoption
         FOREIGN KEY (adoption_id) REFERENCES ADOPTION_RECORD(adoption_id)
 );
+
+-- =========================================
+-- 11. AUDIT_LOG
+-- append-only write operation audit trail
+-- =========================================
+CREATE TABLE AUDIT_LOG (
+    audit_id INT PRIMARY KEY,
+    actor_username VARCHAR(100) NOT NULL,
+    actor_role VARCHAR(50) NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    entity VARCHAR(100) NOT NULL,
+    entity_id VARCHAR(100),
+    before_state TEXT,
+    after_state TEXT,
+    created_at TEXT NOT NULL
+);

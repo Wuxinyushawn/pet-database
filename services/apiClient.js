@@ -18,7 +18,7 @@ function joinUrl(baseURL, path) {
 }
 
 function mapError(status, payload) {
-  const message = payload?.message || payload?.error || DEFAULT_ERROR_MESSAGE;
+  const message = payload?.message || payload?.detail || payload?.error || DEFAULT_ERROR_MESSAGE;
   if (status === 400) return new ApiError(message || 'Invalid request.', { status, code: 'BAD_REQUEST', details: payload });
   if (status === 401 || status === 403) return new ApiError(message || 'Unauthorized.', { status, code: 'UNAUTHORIZED', details: payload });
   if (status === 404) return new ApiError(message || 'Resource not found.', { status, code: 'NOT_FOUND', details: payload });
@@ -28,6 +28,8 @@ function mapError(status, payload) {
 }
 
 export function createApiClient({ baseURL = '/api', timeout = DEFAULT_TIMEOUT } = {}) {
+  let token = null;
+
   async function request(path, { method = 'GET', headers = {}, body, signal } = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
@@ -39,6 +41,7 @@ export function createApiClient({ baseURL = '/api', timeout = DEFAULT_TIMEOUT } 
         headers: {
           Accept: 'application/json',
           ...(body ? { 'Content-Type': 'application/json' } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...headers
         },
         body: body ? JSON.stringify(body) : undefined,
@@ -62,6 +65,10 @@ export function createApiClient({ baseURL = '/api', timeout = DEFAULT_TIMEOUT } 
   }
 
   return {
+    setToken: (nextToken) => {
+      token = nextToken;
+    },
+    getToken: () => token,
     get: (path, options) => request(path, { ...options, method: 'GET' }),
     post: (path, body, options) => request(path, { ...options, method: 'POST', body }),
     patch: (path, body, options) => request(path, { ...options, method: 'PATCH', body }),

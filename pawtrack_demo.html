@@ -33,7 +33,7 @@
 html,body{height:100%;background:var(--bg-tertiary);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--text-primary)}
 button,input,select,textarea{font:inherit}
 .app{display:flex;height:100vh;overflow:hidden}
-.sidebar{width:230px;background:var(--bg-secondary);border-right:1px solid var(--border);padding:18px 0;display:flex;flex-direction:column;gap:8px}
+.sidebar{width:280px;background:var(--bg-secondary);border-right:1px solid var(--border);padding:18px 0;display:flex;flex-direction:column;gap:8px}
 .logo{padding:0 18px 14px;border-bottom:1px solid var(--border);margin-bottom:4px}
 .logo h1{font-size:17px}
 .logo p{font-size:12px;color:var(--text-secondary)}
@@ -97,6 +97,13 @@ tr:hover td{background:var(--bg-secondary)}
 .dot{width:8px;height:8px;border-radius:50%;margin-top:5px}
 .dot-green{background:#5f9421}.dot-amber{background:#b47011}.dot-blue{background:#337cc8}
 .help{font-size:12px;color:var(--text-secondary)}
+.auth-box{padding:0 18px 10px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.auth-user{font-size:12px;color:var(--text-secondary);margin-top:6px}
+.recent-ops{margin-top:auto;border-top:1px solid var(--border);padding:10px 12px 0}
+.recent-ops h4{font-size:12px;color:var(--text-secondary);margin-bottom:8px}
+.recent-ops-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+.recent-op-item{padding:7px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);font-size:11px}
+.hidden{display:none !important}
 @media (max-width: 1100px) { .grid-4,.grid-2{grid-template-columns:1fr 1fr} }
 @media (max-width: 760px) {
   .sidebar{display:none}
@@ -112,13 +119,22 @@ tr:hover td{background:var(--bg-secondary)}
       <h1>PawTrack</h1>
       <p>Operations Console</p>
     </div>
+    <div class="auth-box">
+      <button class="btn btn-primary" id="btn-login">Login</button>
+      <button class="btn hidden" id="btn-logout">Logout</button>
+      <div id="auth-user" class="auth-user">Not logged in</div>
+    </div>
     <div class="nav-item active" data-page="dashboard">Dashboard</div>
     <div class="nav-item" data-page="pets">Pets</div>
-    <div class="nav-item" data-page="applications">Applications</div>
-    <div class="nav-item" data-page="adoptions">Adoptions</div>
-    <div class="nav-item" data-page="followups">Follow-ups</div>
+    <div class="nav-item" data-page="applications" data-perm-view="applications:create">Applications</div>
+    <div class="nav-item" data-page="adoptions" data-perm-view="adoptions:create">Adoptions</div>
+    <div class="nav-item" data-page="followups" data-perm-view="followups:create">Follow-ups</div>
     <div class="nav-item" data-page="medical">Medical</div>
     <div class="nav-item" data-page="volunteers">Volunteers</div>
+    <div class="recent-ops">
+      <h4>最近操作记录</h4>
+      <div id="recent-ops-list" class="recent-ops-list"><div class="help">登录后显示</div></div>
+    </div>
   </aside>
 
   <main class="main">
@@ -161,7 +177,7 @@ tr:hover td{background:var(--bg-secondary)}
       <div class="section">
         <div class="section-head">
           <div class="section-title">Queue</div>
-          <button class="btn btn-primary" id="btn-new-app">+ New application</button>
+          <button class="btn btn-primary" id="btn-new-app" data-perm-action="applications:create">+ New application</button>
         </div>
         <div class="toolbar">
           <input class="input" id="app-search" placeholder="Search applicant or pet">
@@ -179,7 +195,7 @@ tr:hover td{background:var(--bg-secondary)}
       <div class="section">
         <div class="section-head">
           <div class="section-title">Completed/ongoing adoptions</div>
-          <button class="btn btn-primary" id="btn-new-adoption">+ Create from approved app</button>
+          <button class="btn btn-primary" id="btn-new-adoption" data-perm-action="adoptions:create">+ Create from approved app</button>
         </div>
         <table>
           <thead><tr><th>ID</th><th>Application</th><th>Adopter</th><th>Pet</th><th>Date</th><th>Fee</th><th>Actions</th></tr></thead>
@@ -193,7 +209,7 @@ tr:hover td{background:var(--bg-secondary)}
       <div class="section">
         <div class="section-head">
           <div class="section-title">Follow-up log</div>
-          <button class="btn btn-primary" id="btn-new-followup">+ Add follow-up</button>
+          <button class="btn btn-primary" id="btn-new-followup" data-perm-action="followups:create">+ Add follow-up</button>
         </div>
         <table>
           <thead><tr><th>ID</th><th>Adoption ID</th><th>Date</th><th>Type</th><th>Result</th><th>Pet condition</th></tr></thead>
@@ -253,6 +269,8 @@ import { createAdoptionsService } from './services/adoptions.js';
 import { createFollowupsService } from './services/followups.js';
 import { createMedicalService } from './services/medical.js';
 import { createVolunteersService } from './services/volunteers.js';
+import { createAuthService } from './services/auth.js';
+import { createAuditService } from './services/audit.js';
 
 const apiClient = createApiClient({ baseURL: '/api', timeout: 10000 });
 const petsApi = createPetsService(apiClient);
@@ -261,6 +279,14 @@ const adoptionsApi = createAdoptionsService(apiClient);
 const followupsApi = createFollowupsService(apiClient);
 const medicalApi = createMedicalService(apiClient);
 const volunteersApi = createVolunteersService(apiClient);
+const authApi = createAuthService(apiClient);
+const auditApi = createAuditService(apiClient);
+
+const ROLE_PERMISSIONS = {
+  admin: ['applications:create','applications:review','adoptions:create','followups:create','audit:read'],
+  staff: ['applications:create','applications:review','adoptions:create','followups:create','audit:read'],
+  volunteer_coordinator: ['followups:create','audit:read']
+};
 
 const uiState = {
   pets: [],
@@ -271,7 +297,9 @@ const uiState = {
   vaccinations: [],
   volunteers: [],
   assignments: [],
-  activity: []
+  activity: [],
+  auditLogs: [],
+  authUser: null
 };
 
 let currentPage = 'dashboard';
@@ -299,6 +327,97 @@ function normalizeList(payload, fallbackKey) {
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.[fallbackKey])) return payload[fallbackKey];
   return [];
+}
+
+
+function getPermissions() {
+  const role = uiState.authUser?.role;
+  return new Set(ROLE_PERMISSIONS[role] || []);
+}
+
+function can(permission) {
+  return getPermissions().has(permission);
+}
+
+function applyRoleBasedUi() {
+  document.querySelectorAll('[data-perm-view]').forEach((el) => {
+    el.classList.toggle('hidden', !can(el.dataset.permView));
+  });
+  document.querySelectorAll('[data-perm-action]').forEach((el) => {
+    el.classList.toggle('hidden', !can(el.dataset.permAction));
+  });
+  document.getElementById('auth-user').textContent = uiState.authUser
+    ? `${uiState.authUser.username} (${uiState.authUser.role})`
+    : 'Not logged in';
+  document.getElementById('btn-login').classList.toggle('hidden', Boolean(uiState.authUser));
+  document.getElementById('btn-logout').classList.toggle('hidden', !uiState.authUser);
+}
+
+function renderRecentOps() {
+  const el = document.getElementById('recent-ops-list');
+  if (!uiState.authUser) {
+    el.innerHTML = '<div class="help">登录后显示</div>';
+    return;
+  }
+  if (!uiState.auditLogs.length) {
+    el.innerHTML = '<div class="help">暂无审计记录</div>';
+    return;
+  }
+  el.innerHTML = uiState.auditLogs.map((item) => `<div class="recent-op-item"><strong>${esc(item.action)}</strong><br>${esc(item.entity)} ${esc(item.entity_id || '')}<br><span class="help">${esc(item.actor_username)} · ${esc(item.created_at)}</span></div>`).join('');
+}
+
+async function refreshAuditLogs() {
+  if (!uiState.authUser || !can('audit:read')) {
+    uiState.auditLogs = [];
+    renderRecentOps();
+    return;
+  }
+  try {
+    uiState.auditLogs = normalizeList(await auditApi.listRecent(10), 'data');
+  } catch {
+    uiState.auditLogs = [];
+  }
+  renderRecentOps();
+}
+
+function openLoginModal() {
+  openModal(`
+    <button class="modal-close" data-close>✕</button>
+    <h3>登录</h3>
+    <div class="form-row"><label class="form-label">Username</label><input id="login-username" class="input" style="width:100%" placeholder="admin / staff / coordinator"></div>
+    <div class="form-row"><label class="form-label">Password</label><input id="login-password" type="password" class="input" style="width:100%" placeholder="admin123 / staff123 / coord123"></div>
+    <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="submit-login">Login</button></div>
+  `);
+  document.getElementById('submit-login').onclick = submitLogin;
+}
+
+async function submitLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!username || !password) return showToast('请输入账号和密码', 'danger');
+  try {
+    const payload = await authApi.login({ username, password });
+    const token = payload?.data?.token;
+    const user = payload?.data?.user;
+    apiClient.setToken(token);
+    uiState.authUser = user;
+    applyRoleBasedUi();
+    await initializeData();
+    await refreshAuditLogs();
+    closeModal();
+    showToast('登录成功', 'success');
+  } catch (error) {
+    showToast(`登录失败: ${error.message}`, 'danger');
+  }
+}
+
+function logout() {
+  apiClient.setToken(null);
+  uiState.authUser = null;
+  uiState.auditLogs = [];
+  renderRecentOps();
+  applyRoleBasedUi();
+  showToast('已退出登录');
 }
 
 function go(page) {
@@ -423,11 +542,12 @@ async function submitReview(applicationId, decision) {
   renderApplications(uiState);
 
   try {
-    await applicationsApi.reviewApplication(applicationId, { decision, note, reviewer: 'Staff (you)' });
+    await applicationsApi.reviewApplication(applicationId, { status: decision.toLowerCase(), decision_note: note, reviewer_name: uiState.authUser?.username || 'staff' });
     await refreshApplications();
     await refreshPets();
     closeModal();
     addActivity(`${applicationId} ${decision.toLowerCase()} for review flow`, decision === 'Approved' ? 'green' : 'amber');
+    await refreshAuditLogs();
     showToast(`Application ${applicationId} updated to ${decision}.`, 'success');
   } catch (error) {
     uiState.applications = snapshot;
@@ -471,10 +591,11 @@ async function submitNewApplication() {
   renderPets(uiState);
 
   try {
-    await applicationsApi.createApplication({ applicant, petId, housing, reason });
+    await applicationsApi.createApplication({ applicant_id: 1, pet_id: Number(petId.replace(/\D/g, '')) || 1, reason: `${reason} (Housing: ${housing})`, status: 'pending' });
     await Promise.all([refreshApplications(), refreshPets()]);
     closeModal();
     addActivity(`New application submitted for ${pet?.name || petId}`, 'amber');
+    await refreshAuditLogs();
     showToast('Application created.', 'success');
   } catch (error) {
     uiState.applications = snapshot.applications;
@@ -530,10 +651,11 @@ async function submitNewAdoption() {
   renderPets(uiState);
 
   try {
-    await adoptionsApi.createAdoption({ applicationId: appId, adoptionDate: date, fee, handoverNote: note });
+    await adoptionsApi.createAdoption({ application_id: Number(String(appId).replace(/\D/g, '')) || 1, adoption_date: date, final_adoption_fee: fee, handover_note: note });
     await Promise.all([refreshAdoptions(), refreshPets()]);
     closeModal();
     addActivity(`Adoption created for ${app.pet}`, 'green');
+    await refreshAuditLogs();
     showToast('Adoption record created.', 'success');
   } catch (error) {
     uiState.adoptions = snapshot.adoptions;
@@ -576,10 +698,11 @@ async function submitNewFollowup() {
   renderFollowups(uiState);
 
   try {
-    await followupsApi.createFollowup({ adoptionId, date, type, petCondition, feedback });
+    await followupsApi.createFollowup({ adoption_id: Number(String(adoptionId).replace(/\D/g, '')) || 1, followup_date: date, followup_type: type, pet_condition: petCondition, adopter_feedback: feedback, result_status: 'completed' });
     await refreshFollowups();
     closeModal();
     addActivity(`Follow-up completed for ${adoptionId}`, 'blue');
+    await refreshAuditLogs();
     showToast('Follow-up saved.', 'success');
   } catch (error) {
     uiState.followups = snapshot;
@@ -650,17 +773,18 @@ async function refreshVolunteers() {
 }
 
 async function initializeData() {
-  try {
-    await Promise.all([
-      refreshPets(),
-      refreshApplications(),
-      refreshAdoptions(),
-      refreshFollowups(),
-      refreshMedical(),
-      refreshVolunteers()
-    ]);
-  } catch (error) {
-    showToast(`Initial data load failed: ${error.message}`, 'danger');
+  const loaders = [
+    refreshPets,
+    refreshApplications,
+    refreshAdoptions,
+    refreshFollowups,
+    refreshMedical,
+    refreshVolunteers
+  ];
+  const results = await Promise.allSettled(loaders.map((fn) => fn()));
+  const failed = results.filter((r) => r.status === 'rejected');
+  if (failed.length) {
+    showToast(`部分数据加载失败 (${failed.length})，请检查后端接口。`, 'danger');
   }
 }
 
@@ -675,6 +799,8 @@ window.addEventListener('hashchange', () => {
 ['app-search','app-status-filter'].forEach(id => document.getElementById(id).addEventListener('input', () => renderApplications(uiState)));
 document.getElementById('app-status-filter').addEventListener('change', () => renderApplications(uiState));
 
+document.getElementById('btn-login').onclick = openLoginModal;
+document.getElementById('btn-logout').onclick = logout;
 document.getElementById('btn-new-app').onclick = openNewApplicationModal;
 document.getElementById('btn-new-adoption').onclick = openNewAdoptionModal;
 document.getElementById('btn-new-followup').onclick = openNewFollowupModal;
@@ -698,7 +824,8 @@ window.addEventListener('keydown', (e) => {
 });
 
 if (location.hash && document.getElementById(`page-${location.hash.slice(1)}`)) go(location.hash.slice(1));
-initializeData();
+applyRoleBasedUi();
+renderRecentOps();
 </script>
 </body>
 </html>
