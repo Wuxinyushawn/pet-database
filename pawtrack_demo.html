@@ -715,12 +715,33 @@ async function submitNewFollowup() {
   const staffNote = document.getElementById('fu-note').value.trim();
   if (!adoptionId || !date || !petCondition || !feedback) return showToast('Please fill all follow-up fields.', 'danger');
 
+  const fallbackCompleted = globalThis.ENUMS?.followupStatus?.COMPLETED ?? 'Completed';
+  const optimisticFollowupId = typeof nextTempId === 'function' ? nextTempId('FU') : `TEMP-${Date.now()}`;
+  const normalizedResult = result || fallbackCompleted;
+  const normalizedStaffNote = staffNote || 'Pending sync';
   const snapshot = structuredClone(uiState.followups);
-  uiState.followups.unshift({ id: nextTempId('FU'), adoptionId, date, type, petCondition, feedback, result, staffNote });
+  uiState.followups.unshift({
+    id: optimisticFollowupId,
+    adoptionId,
+    date,
+    type,
+    petCondition,
+    feedback,
+    result: normalizedResult,
+    staffNote: normalizedStaffNote
+  });
   renderFollowups(uiState);
 
   try {
-    await followupsApi.createFollowup({ adoptionId, date, type, petCondition, feedback, resultStatus: result, staffNote });
+    await followupsApi.createFollowup({
+      adoptionId,
+      date,
+      type,
+      petCondition,
+      feedback,
+      resultStatus: normalizedResult,
+      staffNote: normalizedStaffNote
+    });
     await refreshFollowups();
     closeModal();
     addActivity(`Follow-up completed for ${adoptionId}`, 'blue');
