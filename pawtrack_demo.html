@@ -245,77 +245,39 @@ tr:hover td{background:var(--bg-secondary)}
 <div class="overlay" id="modal-overlay"><div class="modal" id="modal"></div></div>
 <div id="toast" class="toast"></div>
 
-<script>
-const STORAGE_KEY = 'pawtrack_state_v2';
-const state = loadState() || {
-  pets: [
-    {id:'P-001',name:'Buddy',species:'Dog',breed:'Golden Retriever',sex:'Male',color:'Golden',birth:'2022-03-15',intake:'2025-11-02',status:'Available',sterilized:'Yes',special:'None'},
-    {id:'P-002',name:'Mochi',species:'Cat',breed:'British Shorthair',sex:'Female',color:'Grey',birth:'2023-07-20',intake:'2026-01-10',status:'Reserved',sterilized:'Yes',special:'None'},
-    {id:'P-003',name:'Rex',species:'Dog',breed:'German Shepherd',sex:'Male',color:'Black & Tan',birth:'2021-09-05',intake:'2025-08-17',status:'Medical hold',sterilized:'No',special:'Injured paw'},
-    {id:'P-004',name:'Snowball',species:'Rabbit',breed:'Holland Lop',sex:'Female',color:'White',birth:'2024-02-11',intake:'2026-02-28',status:'Available',sterilized:'No',special:'None'},
-    {id:'P-005',name:'Luna',species:'Cat',breed:'Siamese',sex:'Female',color:'Cream & Brown',birth:'2022-11-30',intake:'2025-12-05',status:'Adopted',sterilized:'Yes',special:'None'},
-    {id:'P-006',name:'Daisy',species:'Dog',breed:'Beagle',sex:'Female',color:'Tri-color',birth:'2023-04-18',intake:'2026-03-01',status:'Available',sterilized:'Yes',special:'None'},
-    {id:'P-007',name:'Oreo',species:'Cat',breed:'Domestic Shorthair',sex:'Male',color:'Black & White',birth:'2024-01-09',intake:'2026-03-15',status:'Available',sterilized:'No',special:'None'},
-    {id:'P-008',name:'Max',species:'Dog',breed:'Labrador',sex:'Male',color:'Black',birth:'2022-06-22',intake:'2025-10-08',status:'Reserved',sterilized:'Yes',special:'None'}
-  ],
-  applications: [
-    {id:'APP-001',applicant:'Chen Wei',pet:'Buddy',date:'2026-03-20',status:'Approved',reviewer:'Staff A',reason:'Long-time dog lover, owns a house with garden.',decision:'Approved — ideal living conditions'},
-    {id:'APP-002',applicant:'Li Fang',pet:'Mochi',date:'2026-04-01',status:'Pending',reviewer:'—',reason:'First-time cat owner, works from home.',decision:'—'},
-    {id:'APP-003',applicant:'Wang Hao',pet:'Luna',date:'2026-02-14',status:'Approved',reviewer:'Staff B',reason:'Has two cats at home, experienced owner.',decision:'Approved — good match'},
-    {id:'APP-004',applicant:'Zhang Ying',pet:'Rex',date:'2026-04-05',status:'Pending',reviewer:'—',reason:'Wants a guard dog, has large yard.',decision:'—'},
-    {id:'APP-005',applicant:'Liu Yang',pet:'Daisy',date:'2026-04-08',status:'Pending',reviewer:'—',reason:'Family with two children, active lifestyle.',decision:'—'},
-    {id:'APP-006',applicant:'Zhao Ming',pet:'Max',date:'2026-03-28',status:'Rejected',reviewer:'Staff A',reason:'Apartment living, no outdoor space.',decision:'Rejected — not suitable for Labrador'}
-  ],
-  adoptions: [
-    {id:'ADP-001',applicationId:'APP-001',applicant:'Chen Wei',pet:'Buddy',adoptionDate:'2026-03-25',fee:300,handoverNote:'Starter kit provided.'},
-    {id:'ADP-002',applicationId:'APP-003',applicant:'Wang Hao',pet:'Luna',adoptionDate:'2026-02-20',fee:260,handoverNote:'Post-op care explained.'}
-  ],
-  followups: [
-    {id:'FU-001',adoptionId:'ADP-001',date:'2026-04-01',type:'Phone',petCondition:'Healthy and active',feedback:'Very positive',result:'Completed',staffNote:'No issues found.'},
-    {id:'FU-002',adoptionId:'ADP-002',date:'2026-03-12',type:'Home visit',petCondition:'Recovering well',feedback:'Needs diet guidance',result:'Completed',staffNote:'Shared food plan.'}
-  ],
-  medical: [
-    {pet:'Buddy',date:'2026-03-10',type:'Check-up',vet:'Dr. Wang'},
-    {pet:'Mochi',date:'2026-03-18',type:'Sterilization',vet:'Dr. Li'},
-    {pet:'Rex',date:'2026-04-02',type:'Injury',vet:'Dr. Wang'},
-    {pet:'Snowball',date:'2026-04-08',type:'Check-up',vet:'Dr. Chen'},
-    {pet:'Luna',date:'2026-04-10',type:'Surgery',vet:'Dr. Li'}
-  ],
-  vaccinations: [
-    {pet:'Rex',vaccine:'Rabies',due:'2026-04-15'},
-    {pet:'Mochi',vaccine:'FVRCP',due:'2026-04-20'},
-    {pet:'Buddy',vaccine:'DHPP',due:'2026-05-01'},
-    {pet:'Snowball',vaccine:'Bordetella',due:'2026-05-10'},
-    {pet:'Daisy',vaccine:'Rabies',due:'2026-05-22'}
-  ],
-  volunteers: [
-    {name:'Zhang San',email:'zhangsan@example.com',joined:'2025-06-01',status:'Active',pets:'Rex, Buddy'},
-    {name:'Li Ming',email:'liming@example.com',joined:'2025-09-15',status:'Active',pets:'Mochi'},
-    {name:'Wang Fang',email:'wangfang@example.com',joined:'2026-01-08',status:'Active',pets:'Snowball, Luna'},
-    {name:'Chen Jie',email:'chenjie@example.com',joined:'2026-02-20',status:'Inactive',pets:'—'}
-  ],
-  assignments: [
-    {id:'CA-001',volunteer:'Zhang San',pet:'Rex',shift:'Morning',task:'Feeding & walk',status:'Done'},
-    {id:'CA-002',volunteer:'Li Ming',pet:'Mochi',shift:'Morning',task:'Grooming',status:'Done'},
-    {id:'CA-003',volunteer:'Zhang San',pet:'Buddy',shift:'Afternoon',task:'Feeding & walk',status:'Pending'},
-    {id:'CA-004',volunteer:'Wang Fang',pet:'Snowball',shift:'Afternoon',task:'Medication',status:'Pending'}
-  ],
-  activity: [
-    {text:'Buddy adopted by Chen Wei',type:'green',time:'Today, 10:32 AM'},
-    {text:'New application for Mochi from Li Fang',type:'amber',time:'Today, 09:14 AM'},
-    {text:'Vaccination record added for Snowball',type:'blue',time:'Yesterday, 04:45 PM'}
-  ],
-  ids: {app: 7, adoption: 3, followup: 3}
+<script type="module">
+import { createApiClient } from './services/apiClient.js';
+import { createPetsService } from './services/pets.js';
+import { createApplicationsService } from './services/applications.js';
+import { createAdoptionsService } from './services/adoptions.js';
+import { createFollowupsService } from './services/followups.js';
+import { createMedicalService } from './services/medical.js';
+import { createVolunteersService } from './services/volunteers.js';
+
+const apiClient = createApiClient({ baseURL: '/api', timeout: 10000 });
+const petsApi = createPetsService(apiClient);
+const applicationsApi = createApplicationsService(apiClient);
+const adoptionsApi = createAdoptionsService(apiClient);
+const followupsApi = createFollowupsService(apiClient);
+const medicalApi = createMedicalService(apiClient);
+const volunteersApi = createVolunteersService(apiClient);
+
+const uiState = {
+  pets: [],
+  applications: [],
+  adoptions: [],
+  followups: [],
+  medical: [],
+  vaccinations: [],
+  volunteers: [],
+  assignments: [],
+  activity: []
 };
 
 let currentPage = 'dashboard';
 let keySequence = '';
 
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch (_) { return null; }
-}
-function esc(str){ return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function esc(str){ return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function badge(type, text){ return `<span class="badge ${type}">${esc(text)}</span>`; }
 function showToast(msg, tone='info') {
   const t = document.getElementById('toast');
@@ -332,6 +294,12 @@ function nowLabel() {
   h = h % 12 || 12;
   return `Today, ${String(h).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} ${suffix}`;
 }
+function normalizeList(payload, fallbackKey) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.[fallbackKey])) return payload[fallbackKey];
+  return [];
+}
 
 function go(page) {
   currentPage = page;
@@ -341,13 +309,12 @@ function go(page) {
 }
 
 function addActivity(text, type='amber') {
-  state.activity.unshift({text, type, time: nowLabel()});
-  state.activity = state.activity.slice(0, 8);
-  saveState();
-  renderDashboard();
+  uiState.activity.unshift({text, type, time: nowLabel()});
+  uiState.activity = uiState.activity.slice(0, 8);
+  renderDashboard(uiState);
 }
 
-function renderDashboard() {
+function renderDashboard(state) {
   const total = state.pets.length;
   const available = state.pets.filter(p => p.status === 'Available').length;
   const pending = state.applications.filter(a => a.status === 'Pending').length;
@@ -372,64 +339,66 @@ function renderDashboard() {
 function statusBadge(s) {
   const map = {
     'Available':'b-available','Reserved':'b-reserved','Adopted':'b-adopted','Medical hold':'b-hold',
-    'Pending':'b-pending','Approved':'b-approved','Rejected':'b-rejected','Done':'b-done',
+    'Pending':'b-pending','Approved':'b-approved','Rejected':'b-rejected','Done':'b-done','Completed':'b-done',
     'Active':'b-active','Inactive':'b-inactive'
   };
   return badge(map[s] || '', s);
 }
 
-function renderPets() {
+function renderPets(state) {
   const q = document.getElementById('pet-search').value.toLowerCase();
   const st = document.getElementById('pet-status-filter').value;
   const sp = document.getElementById('pet-species-filter').value;
   const filtered = state.pets.filter(p => (!q || p.name.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q)) && (!st || p.status===st) && (!sp || p.species===sp));
-  document.getElementById('pet-tbody').innerHTML = filtered.length ? filtered.map((p, i) => `<tr>
+  document.getElementById('pet-tbody').innerHTML = filtered.length ? filtered.map((p) => `<tr>
     <td>${p.id}</td><td><strong>${esc(p.name)}</strong></td><td>${esc(p.species)}</td><td>${esc(p.breed)}</td>
     <td>${statusBadge(p.status)}</td><td>${p.intake}</td>
-    <td><button class="btn" data-pet-index="${state.pets.indexOf(p)}">View</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty">No pets found.</td></tr>`;
+    <td><button class="btn" data-pet-id="${esc(p.id)}">View</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty">No pets found.</td></tr>`;
 
-  document.querySelectorAll('[data-pet-index]').forEach(btn => btn.onclick = () => openPetDetail(Number(btn.dataset.petIndex)));
+  document.querySelectorAll('[data-pet-id]').forEach(btn => btn.onclick = () => openPetDetail(btn.dataset.petId));
 }
 
-function openPetDetail(i){
-  const p = state.pets[i];
+function openPetDetail(petId){
+  const p = uiState.pets.find(pet => pet.id === petId);
+  if (!p) return;
   openModal(`
     <button class="modal-close" data-close>✕</button>
     <h3>${esc(p.name)} (${p.id})</h3>
     ${[
       ['Species',p.species],['Breed',p.breed],['Sex',p.sex],['Color',p.color],['Birth',p.birth],
       ['Intake',p.intake],['Status',p.status],['Sterilized',p.sterilized],['Special needs',p.special]
-    ].map(([k,v]) => `<div class="field"><span class="field-label">${k}</span><span>${esc(v)}</span></div>`).join('')}
+    ].map(([k,v]) => `<div class="field"><span class="field-label">${k}</span><span>${esc(v || '—')}</span></div>`).join('')}
   `);
 }
 
-function renderApplications() {
+function renderApplications(state) {
   const q = document.getElementById('app-search').value.toLowerCase();
   const st = document.getElementById('app-status-filter').value;
   const list = state.applications.filter(a => (!q || a.applicant.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q)) && (!st || a.status === st));
   document.getElementById('app-tbody').innerHTML = list.length ? list.map(a => {
-    const i = state.applications.indexOf(a);
     const action = a.status === 'Pending'
-      ? `<button class="btn" data-app-view="${i}">View</button> <button class="btn btn-success" data-app-review="${i}">Review</button>`
-      : `<button class="btn" data-app-view="${i}">View</button>`;
+      ? `<button class="btn" data-app-view="${esc(a.id)}">View</button> <button class="btn btn-success" data-app-review="${esc(a.id)}">Review</button>`
+      : `<button class="btn" data-app-view="${esc(a.id)}">View</button>`;
     return `<tr><td>${a.id}</td><td><strong>${esc(a.applicant)}</strong></td><td>${esc(a.pet)}</td><td>${a.date}</td><td>${statusBadge(a.status)}</td><td>${action}</td></tr>`;
   }).join('') : `<tr><td colspan="6" class="empty">No applications found.</td></tr>`;
 
-  document.querySelectorAll('[data-app-view]').forEach(btn => btn.onclick = () => openAppDetail(Number(btn.dataset.appView)));
-  document.querySelectorAll('[data-app-review]').forEach(btn => btn.onclick = () => openReviewModal(Number(btn.dataset.appReview)));
+  document.querySelectorAll('[data-app-view]').forEach(btn => btn.onclick = () => openAppDetail(btn.dataset.appView));
+  document.querySelectorAll('[data-app-review]').forEach(btn => btn.onclick = () => openReviewModal(btn.dataset.appReview));
 }
 
-function openAppDetail(i) {
-  const a = state.applications[i];
+function openAppDetail(applicationId) {
+  const a = uiState.applications.find(app => app.id === applicationId);
+  if (!a) return;
   openModal(`
     <button class="modal-close" data-close>✕</button>
     <h3>${a.id} — ${esc(a.applicant)}</h3>
-    ${[['Pet',a.pet],['Date',a.date],['Status',a.status],['Reviewer',a.reviewer],['Reason',a.reason],['Decision',a.decision]].map(([k,v]) => `<div class="field"><span class="field-label">${k}</span><span>${esc(v)}</span></div>`).join('')}
+    ${[['Pet',a.pet],['Date',a.date],['Status',a.status],['Reviewer',a.reviewer],['Reason',a.reason],['Decision',a.decision]].map(([k,v]) => `<div class="field"><span class="field-label">${k}</span><span>${esc(v || '—')}</span></div>`).join('')}
   `);
 }
 
-function openReviewModal(i) {
-  const a = state.applications[i];
+function openReviewModal(applicationId) {
+  const a = uiState.applications.find(app => app.id === applicationId);
+  if (!a) return;
   openModal(`
     <button class="modal-close" data-close>✕</button>
     <h3>Review ${a.id}</h3>
@@ -441,38 +410,40 @@ function openReviewModal(i) {
       <button class="btn btn-success" id="approve-btn">Approve</button>
     </div>
   `);
-  document.getElementById('reject-btn').onclick = () => submitReview(i, 'Rejected');
-  document.getElementById('approve-btn').onclick = () => submitReview(i, 'Approved');
+  document.getElementById('reject-btn').onclick = () => submitReview(applicationId, 'Rejected');
+  document.getElementById('approve-btn').onclick = () => submitReview(applicationId, 'Approved');
 }
 
-function submitReview(i, decision) {
+async function submitReview(applicationId, decision) {
   const note = document.getElementById('review-note').value.trim();
   if (!note) return showToast('Decision note is required.', 'danger');
-  const app = state.applications[i];
-  app.status = decision;
-  app.decision = note;
-  app.reviewer = 'Staff (you)';
 
-  if (decision === 'Rejected') {
-    const pet = state.pets.find(p => p.name === app.pet && p.status === 'Reserved');
-    if (pet) pet.status = 'Available';
+  const snapshot = structuredClone(uiState.applications);
+  uiState.applications = uiState.applications.map(app => app.id === applicationId ? { ...app, status: decision, decision: note, reviewer: 'Staff (you)' } : app);
+  renderApplications(uiState);
+
+  try {
+    await applicationsApi.reviewApplication(applicationId, { decision, note, reviewer: 'Staff (you)' });
+    await refreshApplications();
+    await refreshPets();
+    closeModal();
+    addActivity(`${applicationId} ${decision.toLowerCase()} for review flow`, decision === 'Approved' ? 'green' : 'amber');
+    showToast(`Application ${applicationId} updated to ${decision}.`, 'success');
+  } catch (error) {
+    uiState.applications = snapshot;
+    renderApplications(uiState);
+    showToast(`Review failed: ${error.message}`, 'danger');
   }
-
-  saveState();
-  closeModal();
-  renderAll();
-  addActivity(`${app.id} ${decision.toLowerCase()} for ${app.pet}`, decision === 'Approved' ? 'green' : 'amber');
-  showToast(`Application ${app.id} updated to ${decision}.`, 'success');
 }
 
 function openNewApplicationModal() {
-  const availablePets = state.pets.filter(p => p.status === 'Available');
+  const availablePets = uiState.pets.filter(p => p.status === 'Available');
   openModal(`
     <button class="modal-close" data-close>✕</button>
     <h3>New adoption application</h3>
     <div class="form-row"><label class="form-label">Applicant</label><input id="new-applicant" class="input" placeholder="Full name" style="width:100%"></div>
     <div class="form-row"><label class="form-label">Pet (available only)</label>
-      <select id="new-app-pet" class="select" style="width:100%"><option value="">Select a pet</option>${availablePets.map(p => `<option value="${esc(p.name)}">${esc(p.name)} (${esc(p.breed)})</option>`).join('')}</select>
+      <select id="new-app-pet" class="select" style="width:100%"><option value="">Select a pet</option>${availablePets.map(p => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(p.breed)})</option>`).join('')}</select>
     </div>
     <div class="form-row"><label class="form-label">Housing type</label><select id="new-app-housing" class="select" style="width:100%"><option value="">Select</option><option>Apartment</option><option>House with garden</option><option>House without garden</option><option>Shared housing</option></select></div>
     <div class="form-row"><label class="form-label">Reason</label><textarea id="new-app-reason" class="textarea" placeholder="Experience, motivation, and living arrangement"></textarea></div>
@@ -484,39 +455,51 @@ function openNewApplicationModal() {
   document.getElementById('submit-new-app').onclick = submitNewApplication;
 }
 
-function submitNewApplication() {
+async function submitNewApplication() {
   const applicant = document.getElementById('new-applicant').value.trim();
-  const petName = document.getElementById('new-app-pet').value;
+  const petId = document.getElementById('new-app-pet').value;
   const housing = document.getElementById('new-app-housing').value;
   const reason = document.getElementById('new-app-reason').value.trim();
-  if (!applicant || !petName || !housing || !reason) return showToast('Please fill in all fields.', 'danger');
+  if (!applicant || !petId || !housing || !reason) return showToast('Please fill in all fields.', 'danger');
 
-  const id = `APP-${String(state.ids.app++).padStart(3,'0')}`;
-  state.applications.unshift({id, applicant, pet: petName, date: new Date().toISOString().slice(0,10), status:'Pending', reviewer:'—', reason: `${reason} (Housing: ${housing})`, decision:'—'});
-  const pet = state.pets.find(p => p.name === petName);
-  if (pet) pet.status = 'Reserved';
+  const optimisticId = `TEMP-${Date.now()}`;
+  const pet = uiState.pets.find(item => item.id === petId);
+  const snapshot = { applications: structuredClone(uiState.applications), pets: structuredClone(uiState.pets) };
+  uiState.applications.unshift({ id: optimisticId, applicant, pet: pet?.name || petId, date: new Date().toISOString().slice(0, 10), status: 'Pending', reviewer: '—', reason: `${reason} (Housing: ${housing})`, decision: '—' });
+  uiState.pets = uiState.pets.map(item => item.id === petId ? { ...item, status: 'Reserved' } : item);
+  renderApplications(uiState);
+  renderPets(uiState);
 
-  saveState();
-  closeModal();
-  renderAll();
-  addActivity(`New application ${id} from ${applicant} for ${petName}`, 'amber');
-  showToast(`Application ${id} created.`, 'success');
+  try {
+    await applicationsApi.createApplication({ applicant, petId, housing, reason });
+    await Promise.all([refreshApplications(), refreshPets()]);
+    closeModal();
+    addActivity(`New application submitted for ${pet?.name || petId}`, 'amber');
+    showToast('Application created.', 'success');
+  } catch (error) {
+    uiState.applications = snapshot.applications;
+    uiState.pets = snapshot.pets;
+    renderApplications(uiState);
+    renderPets(uiState);
+    showToast(`Create failed: ${error.message}`, 'danger');
+  }
 }
 
-function renderAdoptions() {
+function renderAdoptions(state) {
   const body = document.getElementById('adoption-tbody');
-  body.innerHTML = state.adoptions.length ? state.adoptions.map((a, i) => `<tr>
+  body.innerHTML = state.adoptions.length ? state.adoptions.map((a) => `<tr>
     <td>${a.id}</td><td>${a.applicationId}</td><td><strong>${esc(a.applicant)}</strong></td><td>${esc(a.pet)}</td><td>${a.adoptionDate}</td><td>$${a.fee}</td>
-    <td><button class="btn" data-view-adoption="${i}">View</button></td>
+    <td><button class="btn" data-view-adoption="${esc(a.id)}">View</button></td>
   </tr>`).join('') : `<tr><td colspan="7" class="empty">No adoption records yet.</td></tr>`;
   document.querySelectorAll('[data-view-adoption]').forEach(btn => btn.onclick = () => {
-    const a = state.adoptions[Number(btn.dataset.viewAdoption)];
+    const a = uiState.adoptions.find(item => item.id === btn.dataset.viewAdoption);
+    if (!a) return;
     openModal(`<button class="modal-close" data-close>✕</button><h3>${a.id}</h3>${[['Application',a.applicationId],['Adopter',a.applicant],['Pet',a.pet],['Date',a.adoptionDate],['Fee',`$${a.fee}`],['Handover note',a.handoverNote]].map(([k,v])=>`<div class="field"><span class="field-label">${k}</span><span>${esc(v)}</span></div>`).join('')}`);
   });
 }
 
 function openNewAdoptionModal() {
-  const candidates = state.applications.filter(a => a.status === 'Approved' && !state.adoptions.some(ad => ad.applicationId === a.id));
+  const candidates = uiState.applications.filter(a => a.status === 'Approved' && !uiState.adoptions.some(ad => ad.applicationId === a.id));
   openModal(`
     <button class="modal-close" data-close>✕</button>
     <h3>Create adoption record</h3>
@@ -526,29 +509,42 @@ function openNewAdoptionModal() {
     <div class="form-row"><label class="form-label">Handover note</label><textarea id="adp-note" class="textarea"></textarea></div>
     <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="adp-submit">Create record</button></div>
   `);
-  document.getElementById('adp-submit').onclick = () => {
-    const appId = document.getElementById('adp-app').value;
-    const date = document.getElementById('adp-date').value;
-    const fee = Number(document.getElementById('adp-fee').value);
-    const note = document.getElementById('adp-note').value.trim() || '—';
-    if (!appId || !date || Number.isNaN(fee)) return showToast('Please complete all required fields.', 'danger');
-    const app = state.applications.find(a => a.id === appId);
-    if (!app) return showToast('Application not found.', 'danger');
-
-    const id = `ADP-${String(state.ids.adoption++).padStart(3,'0')}`;
-    state.adoptions.unshift({id, applicationId: appId, applicant: app.applicant, pet: app.pet, adoptionDate: date, fee, handoverNote: note});
-    const pet = state.pets.find(p => p.name === app.pet);
-    if (pet) pet.status = 'Adopted';
-
-    saveState();
-    closeModal();
-    renderAll();
-    addActivity(`Adoption ${id} created for ${app.pet}`, 'green');
-    showToast(`Adoption record ${id} created.`, 'success');
-  };
+  document.getElementById('adp-submit').onclick = submitNewAdoption;
 }
 
-function renderFollowups() {
+async function submitNewAdoption() {
+  const appId = document.getElementById('adp-app').value;
+  const date = document.getElementById('adp-date').value;
+  const fee = Number(document.getElementById('adp-fee').value);
+  const note = document.getElementById('adp-note').value.trim() || '—';
+  if (!appId || !date || Number.isNaN(fee)) return showToast('Please complete all required fields.', 'danger');
+
+  const app = uiState.applications.find(item => item.id === appId);
+  if (!app) return showToast('Application not found.', 'danger');
+
+  const snapshot = { adoptions: structuredClone(uiState.adoptions), pets: structuredClone(uiState.pets) };
+  uiState.adoptions.unshift({ id: `TEMP-${Date.now()}`, applicationId: appId, applicant: app.applicant, pet: app.pet, adoptionDate: date, fee, handoverNote: note });
+  const targetPet = uiState.pets.find(p => p.name === app.pet);
+  if (targetPet) targetPet.status = 'Adopted';
+  renderAdoptions(uiState);
+  renderPets(uiState);
+
+  try {
+    await adoptionsApi.createAdoption({ applicationId: appId, adoptionDate: date, fee, handoverNote: note });
+    await Promise.all([refreshAdoptions(), refreshPets()]);
+    closeModal();
+    addActivity(`Adoption created for ${app.pet}`, 'green');
+    showToast('Adoption record created.', 'success');
+  } catch (error) {
+    uiState.adoptions = snapshot.adoptions;
+    uiState.pets = snapshot.pets;
+    renderAdoptions(uiState);
+    renderPets(uiState);
+    showToast(`Create adoption failed: ${error.message}`, 'danger');
+  }
+}
+
+function renderFollowups(state) {
   const body = document.getElementById('followup-tbody');
   body.innerHTML = state.followups.length ? state.followups.map(f => `<tr><td>${f.id}</td><td>${f.adoptionId}</td><td>${f.date}</td><td>${esc(f.type)}</td><td>${statusBadge(f.result)}</td><td>${esc(f.petCondition)}</td></tr>`).join('') : `<tr><td colspan="6" class="empty">No follow-ups yet.</td></tr>`;
 }
@@ -557,31 +553,42 @@ function openNewFollowupModal() {
   openModal(`
     <button class="modal-close" data-close>✕</button>
     <h3>Add follow-up</h3>
-    <div class="form-row"><label class="form-label">Adoption ID</label><select id="fu-adoption" class="select" style="width:100%"><option value="">Select</option>${state.adoptions.map(a => `<option value="${a.id}">${a.id} — ${esc(a.pet)} (${esc(a.applicant)})</option>`).join('')}</select></div>
+    <div class="form-row"><label class="form-label">Adoption ID</label><select id="fu-adoption" class="select" style="width:100%"><option value="">Select</option>${uiState.adoptions.map(a => `<option value="${a.id}">${a.id} — ${esc(a.pet)} (${esc(a.applicant)})</option>`).join('')}</select></div>
     <div class="form-row"><label class="form-label">Follow-up date</label><input id="fu-date" class="input" type="date" style="width:100%" value="${new Date().toISOString().slice(0,10)}"></div>
     <div class="form-row"><label class="form-label">Type</label><select id="fu-type" class="select" style="width:100%"><option>Phone</option><option>Home visit</option><option>Video call</option></select></div>
     <div class="form-row"><label class="form-label">Pet condition</label><textarea id="fu-condition" class="textarea"></textarea></div>
     <div class="form-row"><label class="form-label">Adopter feedback</label><textarea id="fu-feedback" class="textarea"></textarea></div>
     <div class="form-actions"><button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="fu-submit">Add</button></div>
   `);
-  document.getElementById('fu-submit').onclick = () => {
-    const adoptionId = document.getElementById('fu-adoption').value;
-    const date = document.getElementById('fu-date').value;
-    const type = document.getElementById('fu-type').value;
-    const petCondition = document.getElementById('fu-condition').value.trim();
-    const feedback = document.getElementById('fu-feedback').value.trim();
-    if (!adoptionId || !date || !petCondition || !feedback) return showToast('Please fill all follow-up fields.', 'danger');
-    const id = `FU-${String(state.ids.followup++).padStart(3,'0')}`;
-    state.followups.unshift({id, adoptionId, date, type, petCondition, feedback, result:'Completed', staffNote:'Recorded by front desk'});
-    saveState();
-    closeModal();
-    renderAll();
-    addActivity(`Follow-up ${id} completed for ${adoptionId}`, 'blue');
-    showToast(`Follow-up ${id} saved.`, 'success');
-  };
+  document.getElementById('fu-submit').onclick = submitNewFollowup;
 }
 
-function renderMedical() {
+async function submitNewFollowup() {
+  const adoptionId = document.getElementById('fu-adoption').value;
+  const date = document.getElementById('fu-date').value;
+  const type = document.getElementById('fu-type').value;
+  const petCondition = document.getElementById('fu-condition').value.trim();
+  const feedback = document.getElementById('fu-feedback').value.trim();
+  if (!adoptionId || !date || !petCondition || !feedback) return showToast('Please fill all follow-up fields.', 'danger');
+
+  const snapshot = structuredClone(uiState.followups);
+  uiState.followups.unshift({ id: `TEMP-${Date.now()}`, adoptionId, date, type, petCondition, feedback, result: 'Completed', staffNote: 'Pending sync' });
+  renderFollowups(uiState);
+
+  try {
+    await followupsApi.createFollowup({ adoptionId, date, type, petCondition, feedback });
+    await refreshFollowups();
+    closeModal();
+    addActivity(`Follow-up completed for ${adoptionId}`, 'blue');
+    showToast('Follow-up saved.', 'success');
+  } catch (error) {
+    uiState.followups = snapshot;
+    renderFollowups(uiState);
+    showToast(`Create follow-up failed: ${error.message}`, 'danger');
+  }
+}
+
+function renderMedical(state) {
   document.getElementById('medical-tbody').innerHTML = state.medical.map(m => `<tr><td>${esc(m.pet)}</td><td>${m.date}</td><td>${esc(m.type)}</td><td>${esc(m.vet)}</td></tr>`).join('');
   document.getElementById('vax-tbody').innerHTML = state.vaccinations.map(v => {
     const danger = v.due <= new Date().toISOString().slice(0,10);
@@ -589,7 +596,7 @@ function renderMedical() {
   }).join('');
 }
 
-function renderVolunteers() {
+function renderVolunteers(state) {
   document.getElementById('volunteer-tbody').innerHTML = state.volunteers.map(v => `<tr><td><strong>${esc(v.name)}</strong></td><td>${esc(v.email)}</td><td>${v.joined}</td><td>${statusBadge(v.status)}</td><td>${esc(v.pets)}</td></tr>`).join('');
   document.getElementById('assign-tbody').innerHTML = state.assignments.map(a => `<tr><td>${a.id}</td><td>${esc(a.volunteer)}</td><td>${esc(a.pet)}</td><td>${esc(a.shift)}</td><td>${esc(a.task)}</td><td>${statusBadge(a.status)}</td></tr>`).join('');
 }
@@ -603,35 +610,76 @@ function openModal(html) {
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
 
 function renderAll(){
-  renderDashboard();
-  renderPets();
-  renderApplications();
-  renderAdoptions();
-  renderFollowups();
-  renderMedical();
-  renderVolunteers();
+  renderDashboard(uiState);
+  renderPets(uiState);
+  renderApplications(uiState);
+  renderAdoptions(uiState);
+  renderFollowups(uiState);
+  renderMedical(uiState);
+  renderVolunteers(uiState);
 }
 
-// navigation
+async function refreshPets() {
+  uiState.pets = normalizeList(await petsApi.listPets(), 'pets');
+  renderDashboard(uiState);
+  renderPets(uiState);
+}
+async function refreshApplications() {
+  uiState.applications = normalizeList(await applicationsApi.listApplications(), 'applications');
+  renderDashboard(uiState);
+  renderApplications(uiState);
+}
+async function refreshAdoptions() {
+  uiState.adoptions = normalizeList(await adoptionsApi.listAdoptions(), 'adoptions');
+  renderDashboard(uiState);
+  renderAdoptions(uiState);
+}
+async function refreshFollowups() {
+  uiState.followups = normalizeList(await followupsApi.listFollowups(), 'followups');
+  renderFollowups(uiState);
+}
+async function refreshMedical() {
+  uiState.medical = normalizeList(await medicalApi.listMedicalRecords(), 'medical');
+  uiState.vaccinations = normalizeList(await medicalApi.listVaccinations(), 'vaccinations');
+  renderMedical(uiState);
+}
+async function refreshVolunteers() {
+  uiState.volunteers = normalizeList(await volunteersApi.listVolunteers(), 'volunteers');
+  uiState.assignments = normalizeList(await volunteersApi.listAssignments(), 'assignments');
+  renderVolunteers(uiState);
+}
+
+async function initializeData() {
+  try {
+    await Promise.all([
+      refreshPets(),
+      refreshApplications(),
+      refreshAdoptions(),
+      refreshFollowups(),
+      refreshMedical(),
+      refreshVolunteers()
+    ]);
+  } catch (error) {
+    showToast(`Initial data load failed: ${error.message}`, 'danger');
+  }
+}
+
 Array.from(document.querySelectorAll('.nav-item')).forEach(item => item.addEventListener('click', () => go(item.dataset.page)));
 window.addEventListener('hashchange', () => {
   const page = location.hash.replace('#','');
   if (document.getElementById(`page-${page}`)) go(page);
 });
 
-// filters
-['pet-search','pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('input', renderPets));
-['pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('change', renderPets));
-['app-search','app-status-filter'].forEach(id => document.getElementById(id).addEventListener('input', renderApplications));
-document.getElementById('app-status-filter').addEventListener('change', renderApplications);
+['pet-search','pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('input', () => renderPets(uiState)));
+['pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('change', () => renderPets(uiState)));
+['app-search','app-status-filter'].forEach(id => document.getElementById(id).addEventListener('input', () => renderApplications(uiState)));
+document.getElementById('app-status-filter').addEventListener('change', () => renderApplications(uiState));
 
-// actions
 document.getElementById('btn-new-app').onclick = openNewApplicationModal;
 document.getElementById('btn-new-adoption').onclick = openNewAdoptionModal;
 document.getElementById('btn-new-followup').onclick = openNewFollowupModal;
 document.getElementById('modal-overlay').addEventListener('click', (e) => { if (e.target.id === 'modal-overlay') closeModal(); });
 
-// shortcuts: / focus search; g p / g a quick nav
 window.addEventListener('keydown', (e) => {
   if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) {
     e.preventDefault();
@@ -650,7 +698,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 if (location.hash && document.getElementById(`page-${location.hash.slice(1)}`)) go(location.hash.slice(1));
-renderAll();
+initializeData();
 </script>
 </body>
 </html>
