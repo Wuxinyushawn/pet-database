@@ -173,6 +173,7 @@ CREATE TABLE FOLLOW_UP (
         FOREIGN KEY (adoption_id) REFERENCES ADOPTION_RECORD(adoption_id)
 );
 
+
 -- =========================================
 -- 11. AUDIT_LOG
 -- append-only write operation audit trail
@@ -187,4 +188,21 @@ CREATE TABLE IF NOT EXISTS AUDIT_LOG (
     before_state TEXT,
     after_state TEXT,
     created_at TEXT NOT NULL
+);
+
+
+-- =========================================
+-- 12. STATUS_AUDIT_LOG
+-- audit trail for status transitions
+-- =========================================
+CREATE TABLE IF NOT EXISTS STATUS_AUDIT_LOG (
+    audit_id INT PRIMARY KEY,
+    entity_type VARCHAR(50) NOT NULL,
+    entity_id INT NOT NULL,
+    field_name VARCHAR(50) NOT NULL,
+    old_value VARCHAR(50),
+    new_value VARCHAR(50) NOT NULL,
+    changed_at DATE NOT NULL,
+    changed_by VARCHAR(100),
+    note VARCHAR(255)
 );

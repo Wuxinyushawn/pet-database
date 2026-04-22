@@ -64,6 +64,14 @@ Suggested content:
  
 ---
  
+## API Contract Governance
+
+- OpenAPI contract file: `docs/api/openapi.yaml`.
+- This contract is the only integration source of truth across frontend/backend.
+- Any API change must update the OpenAPI file first, then implementation code.
+
+---
+
 ## Backend & SQL Queries
  
 > *To be completed by the backend member.*

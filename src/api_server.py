@@ -1,7 +1,4 @@
-"""REST API server for the pet database.
-
-Adds authentication/authorization and audit logging for all write APIs.
-"""
+"""REST API server for the pet database with auth, RBAC and audit logging."""
 
 from __future__ import annotations
 
@@ -25,14 +22,19 @@ DB_PATH = Path(__file__).parent.parent / "pet_database.db"
 SESSION_SECRET = os.getenv("PET_API_SESSION_SECRET", "pet-db-dev-secret-change-me")
 SESSION_TTL_HOURS = 12
 
-app = FastAPI(title="Pet Database REST API", version="1.1.0")
+app = FastAPI(title="Pet Database REST API", version="1.2.0")
 
+APPLICATION_STATUS_PENDING = "Pending"
+APPLICATION_STATUS_APPROVED = "Approved"
+APPLICATION_STATUS_REJECTED = "Rejected"
 
-# ── Database Management ───────────────────────────────────────────────────────
+PET_STATUS_AVAILABLE = "Available"
+PET_STATUS_RESERVED = "Reserved"
+PET_STATUS_ADOPTED = "Adopted"
+
 
 @contextmanager
 def db_session(*, write: bool = False) -> Generator[sqlite3.Connection, None, None]:
-    """Manage DB connection + transaction in one place."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:
@@ -65,7 +67,29 @@ def _write_error(message: str) -> dict[str, Any]:
     return {"success": False, "data": None, "error": message}
 
 
-def _ensure_audit_table() -> None:
+def _normalize_application_status(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "pending":
+        return APPLICATION_STATUS_PENDING
+    if normalized == "approved":
+        return APPLICATION_STATUS_APPROVED
+    if normalized == "rejected":
+        return APPLICATION_STATUS_REJECTED
+    raise ValueError("Invalid application status. Allowed values: Pending, Approved, Rejected")
+
+
+def _normalize_pet_status(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "available":
+        return PET_STATUS_AVAILABLE
+    if normalized == "reserved":
+        return PET_STATUS_RESERVED
+    if normalized == "adopted":
+        return PET_STATUS_ADOPTED
+    return value
+
+
+def _ensure_audit_tables() -> None:
     with db_session(write=True) as conn:
         conn.execute(
             """
@@ -82,14 +106,27 @@ def _ensure_audit_table() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS STATUS_AUDIT_LOG (
+                audit_id INTEGER PRIMARY KEY,
+                entity_type TEXT NOT NULL,
+                entity_id INTEGER NOT NULL,
+                field_name TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT NOT NULL,
+                changed_at TEXT NOT NULL,
+                changed_by TEXT,
+                note TEXT
+            )
+            """
+        )
 
 
 @app.on_event("startup")
 def startup() -> None:
-    _ensure_audit_table()
+    _ensure_audit_tables()
 
-
-# ── Error Handling ────────────────────────────────────────────────────────────
 
 @app.exception_handler(sqlite3.Error)
 async def sqlite_exception_handler(_, exc: sqlite3.Error):
@@ -101,8 +138,6 @@ async def generic_exception_handler(_, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": f"Internal server error: {exc}"})
 
 
-# ── Auth / RBAC ───────────────────────────────────────────────────────────────
-
 class LoginBody(BaseModel):
     username: str
     password: str
@@ -113,7 +148,6 @@ class SessionUser(BaseModel):
     role: str
 
 
-# demo accounts; can be replaced by DB-backed users later
 USER_STORE: dict[str, dict[str, str]] = {
     "admin": {"password": "admin123", "role": "admin"},
     "staff": {"password": "staff123", "role": "staff"},
@@ -121,24 +155,9 @@ USER_STORE: dict[str, dict[str, str]] = {
 }
 
 ROLE_PERMISSIONS: dict[str, set[str]] = {
-    "admin": {
-        "applications:create",
-        "applications:review",
-        "adoptions:create",
-        "followups:create",
-        "audit:read",
-    },
-    "staff": {
-        "applications:create",
-        "applications:review",
-        "adoptions:create",
-        "followups:create",
-        "audit:read",
-    },
-    "volunteer_coordinator": {
-        "followups:create",
-        "audit:read",
-    },
+    "admin": {"applications:create", "applications:review", "adoptions:create", "followups:create", "audit:read"},
+    "staff": {"applications:create", "applications:review", "adoptions:create", "followups:create", "audit:read"},
+    "volunteer_coordinator": {"followups:create", "audit:read"},
 }
 
 
@@ -157,8 +176,7 @@ def _create_session_token(user: SessionUser) -> str:
         "role": user.role,
         "exp": int((datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)).timestamp()),
     }
-    payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-    body = _b64url(payload_bytes)
+    body = _b64url(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
     signature = hmac.new(SESSION_SECRET.encode("utf-8"), body.encode("utf-8"), hashlib.sha256).digest()
     return f"{body}.{_b64url(signature)}"
 
@@ -168,15 +186,12 @@ def _verify_session_token(token: str) -> SessionUser:
         body, sig = token.split(".", 1)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session token") from exc
-
     expected_sig = hmac.new(SESSION_SECRET.encode("utf-8"), body.encode("utf-8"), hashlib.sha256).digest()
     if not hmac.compare_digest(_b64url(expected_sig), sig):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session signature")
-
     payload = json.loads(_b64url_decode(body))
     if int(payload.get("exp", 0)) < int(datetime.now(timezone.utc).timestamp()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
-
     return SessionUser(username=payload["sub"], role=payload["role"])
 
 
@@ -188,8 +203,7 @@ def get_current_user(authorization: str | None = Header(default=None)) -> Sessio
 
 def require_permission(permission: str):
     def _check(user: SessionUser = Depends(get_current_user)) -> SessionUser:
-        permissions = ROLE_PERMISSIONS.get(user.role, set())
-        if permission not in permissions:
+        if permission not in ROLE_PERMISSIONS.get(user.role, set()):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Role {user.role} lacks {permission}")
         return user
 
@@ -228,18 +242,41 @@ def _audit_log(
     )
 
 
-# ── Request Schemas ───────────────────────────────────────────────────────────
+def _status_audit_log(
+    conn: sqlite3.Connection,
+    *,
+    entity_type: str,
+    entity_id: int,
+    field_name: str,
+    old_value: str | None,
+    new_value: str,
+    changed_by: str | None,
+    note: str | None,
+) -> None:
+    if old_value == new_value:
+        return
+    audit_id = _next_id(conn, "STATUS_AUDIT_LOG", "audit_id")
+    conn.execute(
+        """
+        INSERT INTO STATUS_AUDIT_LOG (
+            audit_id, entity_type, entity_id, field_name, old_value, new_value,
+            changed_at, changed_by, note
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (audit_id, entity_type, entity_id, field_name, old_value, new_value, date.today().isoformat(), changed_by, note),
+    )
+
 
 class CreateApplicationBody(BaseModel):
     applicant_id: int
     pet_id: int
     reason: str | None = None
     application_date: date | None = None
-    status: str = "under_review"
+    status: str = APPLICATION_STATUS_PENDING
 
 
 class ReviewApplicationBody(BaseModel):
-    status: str = Field(description="Typical values: approved/rejected")
+    status: str = Field(description="Allowed values: Approved/Rejected")
     reviewer_name: str | None = None
     decision_note: str | None = None
     reviewed_date: date | None = None
@@ -262,20 +299,14 @@ class CreateFollowupBody(BaseModel):
     staff_note: str | None = None
 
 
-# ── Auth Endpoint ─────────────────────────────────────────────────────────────
-
 @app.post("/auth/login")
 def login(payload: LoginBody) -> dict[str, Any]:
     user = USER_STORE.get(payload.username)
     if not user or user["password"] != payload.password:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
-
     session_user = SessionUser(username=payload.username, role=user["role"])
-    token = _create_session_token(session_user)
-    return {"data": {"token": token, "user": session_user.model_dump(), "expires_in_hours": SESSION_TTL_HOURS}}
+    return {"data": {"token": _create_session_token(session_user), "user": session_user.model_dump(), "expires_in_hours": SESSION_TTL_HOURS}}
 
-
-# ── Read Endpoints ────────────────────────────────────────────────────────────
 
 @app.get("/auth/me")
 def me(user: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
@@ -285,71 +316,36 @@ def me(user: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
 @app.get("/pets")
 def get_pets(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT pet_id, shelter_id, name, species, breed, sex, color, intake_date, status
-            FROM PET
-            ORDER BY pet_id
-            """
-        ).fetchall()
+        rows = conn.execute("SELECT pet_id, shelter_id, name, species, breed, sex, color, intake_date, status FROM PET ORDER BY pet_id").fetchall()
         return {"data": _rows_to_dicts(rows)}
 
 
 @app.get("/applications")
 def get_applications(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT aa.application_id, aa.applicant_id, aa.pet_id, aa.application_date, aa.status,
-                   aa.reason, aa.reviewed_date, aa.reviewer_name, aa.decision_note
-            FROM ADOPTION_APPLICATION aa
-            ORDER BY aa.application_id
-            """
-        ).fetchall()
+        rows = conn.execute("SELECT application_id, applicant_id, pet_id, application_date, status, reason, reviewed_date, reviewer_name, decision_note FROM ADOPTION_APPLICATION ORDER BY application_id").fetchall()
         return {"data": _rows_to_dicts(rows)}
 
 
 @app.get("/adoptions")
 def get_adoptions(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT adoption_id, application_id, adoption_date, final_adoption_fee, handover_note
-            FROM ADOPTION_RECORD
-            ORDER BY adoption_id
-            """
-        ).fetchall()
+        rows = conn.execute("SELECT adoption_id, application_id, adoption_date, final_adoption_fee, handover_note FROM ADOPTION_RECORD ORDER BY adoption_id").fetchall()
         return {"data": _rows_to_dicts(rows)}
 
 
 @app.get("/followups")
 def get_followups(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT followup_id, adoption_id, followup_date, followup_type,
-                   pet_condition, adopter_feedback, result_status, staff_note
-            FROM FOLLOW_UP
-            ORDER BY followup_id
-            """
-        ).fetchall()
+        rows = conn.execute("SELECT followup_id, adoption_id, followup_date, followup_type, pet_condition, adopter_feedback, result_status, staff_note FROM FOLLOW_UP ORDER BY followup_id").fetchall()
         return {"data": _rows_to_dicts(rows)}
-
-
 
 
 @app.get("/medical-records")
 @app.get("/medical/records")
 def get_medical_records(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT mr.record_id, p.name AS pet_name, mr.visit_date, mr.record_type, mr.vet_name
-            FROM MEDICAL_RECORD mr
-            JOIN PET p ON p.pet_id = mr.pet_id
-            ORDER BY mr.record_id
-            """
-        ).fetchall()
+        rows = conn.execute("SELECT mr.record_id, p.name AS pet_name, mr.visit_date, mr.record_type, mr.vet_name FROM MEDICAL_RECORD mr JOIN PET p ON p.pet_id = mr.pet_id ORDER BY mr.record_id").fetchall()
         return {"data": _rows_to_dicts(rows)}
 
 
@@ -357,27 +353,14 @@ def get_medical_records(_: SessionUser = Depends(get_current_user)) -> dict[str,
 @app.get("/medical/vaccinations")
 def get_vaccinations(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT v.vaccination_id, p.name AS pet_name, v.vaccine_name, v.next_due_date
-            FROM VACCINATION v
-            JOIN PET p ON p.pet_id = v.pet_id
-            ORDER BY v.vaccination_id
-            """
-        ).fetchall()
+        rows = conn.execute("SELECT v.vaccination_id, p.name AS pet_name, v.vaccine_name, v.next_due_date FROM VACCINATION v JOIN PET p ON p.pet_id = v.pet_id ORDER BY v.vaccination_id").fetchall()
         return {"data": _rows_to_dicts(rows)}
 
 
 @app.get("/volunteers")
 def get_volunteers(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT volunteer_id, full_name, email, join_date
-            FROM VOLUNTEER
-            ORDER BY volunteer_id
-            """
-        ).fetchall()
+        rows = conn.execute("SELECT volunteer_id, full_name, email, join_date FROM VOLUNTEER ORDER BY volunteer_id").fetchall()
         return {"data": _rows_to_dicts(rows)}
 
 
@@ -385,56 +368,35 @@ def get_volunteers(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]
 @app.get("/volunteers/assignments")
 def get_assignments(_: SessionUser = Depends(get_current_user)) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT ca.assignment_id, v.full_name AS volunteer_name, p.name AS pet_name,
-                   ca.shift, ca.task_type, ca.status
-            FROM CARE_ASSIGNMENT ca
-            JOIN VOLUNTEER v ON v.volunteer_id = ca.volunteer_id
-            JOIN PET p ON p.pet_id = ca.pet_id
-            ORDER BY ca.assignment_id
-            """
-        ).fetchall()
+        rows = conn.execute("SELECT ca.assignment_id, v.full_name AS volunteer_name, p.name AS pet_name, ca.shift, ca.task_type, ca.status FROM CARE_ASSIGNMENT ca JOIN VOLUNTEER v ON v.volunteer_id = ca.volunteer_id JOIN PET p ON p.pet_id = ca.pet_id ORDER BY ca.assignment_id").fetchall()
         return {"data": _rows_to_dicts(rows)}
 
 
 @app.get("/audit-logs/recent")
-def get_recent_audit_logs(
-    limit: int = 20,
-    _: SessionUser = Depends(require_permission("audit:read")),
-) -> dict[str, Any]:
+def get_recent_audit_logs(limit: int = 20, _: SessionUser = Depends(require_permission("audit:read"))) -> dict[str, Any]:
     with db_session() as conn:
-        rows = conn.execute(
-            """
-            SELECT audit_id, actor_username, actor_role, action, entity, entity_id,
-                   before_state, after_state, created_at
-            FROM AUDIT_LOG
-            ORDER BY audit_id DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
+        rows = conn.execute("SELECT audit_id, actor_username, actor_role, action, entity, entity_id, before_state, after_state, created_at FROM AUDIT_LOG ORDER BY audit_id DESC LIMIT ?", (limit,)).fetchall()
         return {"data": _rows_to_dicts(rows)}
 
 
-# ── Write Endpoints ───────────────────────────────────────────────────────────
-
 @app.post("/applications")
-def create_application(
-    payload: CreateApplicationBody,
-    user: SessionUser = Depends(require_permission("applications:create")),
-):
+def create_application(payload: CreateApplicationBody, user: SessionUser = Depends(require_permission("applications:create"))):
     try:
         with db_session(write=True) as conn:
+            target_status = _normalize_application_status(payload.status)
+            if target_status != APPLICATION_STATUS_PENDING:
+                return JSONResponse(status_code=400, content=_write_error("New applications must start with Pending status"))
+
+            pet = conn.execute("SELECT pet_id, status FROM PET WHERE pet_id = ?", (payload.pet_id,)).fetchone()
+            if not pet:
+                return JSONResponse(status_code=404, content=_write_error(f"Pet {payload.pet_id} not found"))
+
+            old_pet_status = _normalize_pet_status(str(pet["status"]))
+            if old_pet_status == PET_STATUS_ADOPTED:
+                return JSONResponse(status_code=400, content=_write_error("Cannot create application for an adopted pet"))
+
             application_id = _next_id(conn, "ADOPTION_APPLICATION", "application_id")
-            after_state = {
-                "application_id": application_id,
-                "applicant_id": payload.applicant_id,
-                "pet_id": payload.pet_id,
-                "application_date": (payload.application_date or date.today()).isoformat(),
-                "status": payload.status,
-                "reason": payload.reason,
-            }
+            application_date = (payload.application_date or date.today()).isoformat()
             conn.execute(
                 """
                 INSERT INTO ADOPTION_APPLICATION (
@@ -442,15 +404,10 @@ def create_application(
                     status, reason, reviewed_date, reviewer_name, decision_note
                 ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL)
                 """,
-                (
-                    application_id,
-                    payload.applicant_id,
-                    payload.pet_id,
-                    after_state["application_date"],
-                    payload.status,
-                    payload.reason,
-                ),
+                (application_id, payload.applicant_id, payload.pet_id, application_date, target_status, payload.reason),
             )
+            conn.execute("UPDATE PET SET status = ? WHERE pet_id = ?", (PET_STATUS_RESERVED, payload.pet_id))
+
             _audit_log(
                 conn,
                 actor=user,
@@ -458,8 +415,11 @@ def create_application(
                 entity="ADOPTION_APPLICATION",
                 entity_id=str(application_id),
                 before_state=None,
-                after_state=after_state,
+                after_state={"application_id": application_id, "applicant_id": payload.applicant_id, "pet_id": payload.pet_id, "application_date": application_date, "status": target_status, "reason": payload.reason},
             )
+            _status_audit_log(conn, entity_type="ADOPTION_APPLICATION", entity_id=application_id, field_name="status", old_value=None, new_value=target_status, changed_by=user.username, note="Application created")
+            _status_audit_log(conn, entity_type="PET", entity_id=payload.pet_id, field_name="status", old_value=old_pet_status, new_value=PET_STATUS_RESERVED, changed_by=user.username, note=f"Application {application_id} created")
+
         return _write_success({"application_id": application_id})
     except Exception as exc:
         return JSONResponse(status_code=400, content=_write_error(str(exc)))
@@ -467,86 +427,82 @@ def create_application(
 
 @app.patch("/applications/{application_id}/review")
 @app.post("/applications/{application_id}/review")
-def review_application(
-    application_id: int,
-    payload: ReviewApplicationBody,
-    user: SessionUser = Depends(require_permission("applications:review")),
-):
+def review_application(application_id: int, payload: ReviewApplicationBody, user: SessionUser = Depends(require_permission("applications:review"))):
     try:
         with db_session(write=True) as conn:
-            existing = conn.execute(
-                "SELECT * FROM ADOPTION_APPLICATION WHERE application_id = ?",
-                (application_id,),
-            ).fetchone()
+            target_status = _normalize_application_status(payload.status)
+            if target_status not in (APPLICATION_STATUS_APPROVED, APPLICATION_STATUS_REJECTED):
+                return JSONResponse(status_code=400, content=_write_error("Review status must be Approved or Rejected"))
+
+            existing = conn.execute("SELECT * FROM ADOPTION_APPLICATION WHERE application_id = ?", (application_id,)).fetchone()
             if not existing:
                 return JSONResponse(status_code=404, content=_write_error(f"Application {application_id} not found"))
 
-            before_state = dict(existing)
+            current_status = _normalize_application_status(str(existing["status"]))
+            if current_status != APPLICATION_STATUS_PENDING:
+                return JSONResponse(status_code=400, content=_write_error("Application status transition allowed only from Pending to Approved/Rejected"))
+
             reviewed_date = (payload.reviewed_date or date.today()).isoformat()
             conn.execute(
-                """
-                UPDATE ADOPTION_APPLICATION
-                SET status = ?, reviewer_name = ?, decision_note = ?, reviewed_date = ?
-                WHERE application_id = ?
-                """,
-                (
-                    payload.status,
-                    payload.reviewer_name,
-                    payload.decision_note,
-                    reviewed_date,
-                    application_id,
-                ),
+                "UPDATE ADOPTION_APPLICATION SET status = ?, reviewer_name = ?, decision_note = ?, reviewed_date = ? WHERE application_id = ?",
+                (target_status, payload.reviewer_name, payload.decision_note, reviewed_date, application_id),
             )
-            after_state = {
-                **before_state,
-                "status": payload.status,
-                "reviewer_name": payload.reviewer_name,
-                "decision_note": payload.decision_note,
-                "reviewed_date": reviewed_date,
-            }
+
             _audit_log(
                 conn,
                 actor=user,
                 action="review_application",
                 entity="ADOPTION_APPLICATION",
                 entity_id=str(application_id),
-                before_state=before_state,
-                after_state=after_state,
+                before_state=dict(existing),
+                after_state={**dict(existing), "status": target_status, "reviewer_name": payload.reviewer_name, "decision_note": payload.decision_note, "reviewed_date": reviewed_date},
             )
-        return _write_success({"application_id": application_id, "status": payload.status})
+            _status_audit_log(conn, entity_type="ADOPTION_APPLICATION", entity_id=application_id, field_name="status", old_value=current_status, new_value=target_status, changed_by=user.username, note=payload.decision_note)
+
+            if target_status == APPLICATION_STATUS_REJECTED:
+                pet_id = int(existing["pet_id"])
+                other_active = conn.execute(
+                    "SELECT COUNT(*) AS c FROM ADOPTION_APPLICATION WHERE pet_id = ? AND application_id <> ? AND status IN (?, ?)",
+                    (pet_id, application_id, APPLICATION_STATUS_PENDING, APPLICATION_STATUS_APPROVED),
+                ).fetchone()
+                pet_row = conn.execute("SELECT status FROM PET WHERE pet_id = ?", (pet_id,)).fetchone()
+                if pet_row:
+                    old_pet_status = _normalize_pet_status(str(pet_row["status"]))
+                    if old_pet_status == PET_STATUS_RESERVED and int(other_active["c"]) == 0:
+                        conn.execute("UPDATE PET SET status = ? WHERE pet_id = ?", (PET_STATUS_AVAILABLE, pet_id))
+                        _status_audit_log(conn, entity_type="PET", entity_id=pet_id, field_name="status", old_value=old_pet_status, new_value=PET_STATUS_AVAILABLE, changed_by=user.username, note=f"Released after application {application_id} rejected")
+
+        return _write_success({"application_id": application_id, "status": target_status})
     except Exception as exc:
         return JSONResponse(status_code=400, content=_write_error(str(exc)))
 
 
 @app.post("/adoptions")
-def create_adoption(
-    payload: CreateAdoptionBody,
-    user: SessionUser = Depends(require_permission("adoptions:create")),
-):
+def create_adoption(payload: CreateAdoptionBody, user: SessionUser = Depends(require_permission("adoptions:create"))):
     try:
         with db_session(write=True) as conn:
+            application = conn.execute(
+                "SELECT aa.application_id, aa.pet_id, aa.status, p.status AS pet_status FROM ADOPTION_APPLICATION aa JOIN PET p ON p.pet_id = aa.pet_id WHERE aa.application_id = ?",
+                (payload.application_id,),
+            ).fetchone()
+            if not application:
+                return JSONResponse(status_code=404, content=_write_error(f"Application {payload.application_id} not found"))
+            if _normalize_application_status(str(application["status"])) != APPLICATION_STATUS_APPROVED:
+                return JSONResponse(status_code=400, content=_write_error("Adoption can only be created from an Approved application"))
+
+            already_used = conn.execute("SELECT adoption_id FROM ADOPTION_RECORD WHERE application_id = ?", (payload.application_id,)).fetchone()
+            if already_used:
+                return JSONResponse(status_code=400, content=_write_error("This application has already been used in an adoption record"))
+
             adoption_id = _next_id(conn, "ADOPTION_RECORD", "adoption_id")
-            after_state = {
-                "adoption_id": adoption_id,
-                "application_id": payload.application_id,
-                "adoption_date": (payload.adoption_date or date.today()).isoformat(),
-                "final_adoption_fee": str(payload.final_adoption_fee) if payload.final_adoption_fee is not None else None,
-                "handover_note": payload.handover_note,
-            }
+            adoption_date = (payload.adoption_date or date.today()).isoformat()
             conn.execute(
-                """
-                INSERT INTO ADOPTION_RECORD (
-                    adoption_id, application_id, adoption_date, final_adoption_fee, handover_note
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    adoption_id,
-                    payload.application_id,
-                    after_state["adoption_date"],
-                    payload.final_adoption_fee,
-                    payload.handover_note,
-                ),
+                "INSERT INTO ADOPTION_RECORD (adoption_id, application_id, adoption_date, final_adoption_fee, handover_note) VALUES (?, ?, ?, ?, ?)",
+                (adoption_id, payload.application_id, adoption_date, payload.final_adoption_fee, payload.handover_note),
             )
+            old_pet_status = _normalize_pet_status(str(application["pet_status"]))
+            conn.execute("UPDATE PET SET status = ? WHERE pet_id = ?", (PET_STATUS_ADOPTED, application["pet_id"]))
+
             _audit_log(
                 conn,
                 actor=user,
@@ -554,48 +510,24 @@ def create_adoption(
                 entity="ADOPTION_RECORD",
                 entity_id=str(adoption_id),
                 before_state=None,
-                after_state=after_state,
+                after_state={"adoption_id": adoption_id, "application_id": payload.application_id, "adoption_date": adoption_date, "final_adoption_fee": str(payload.final_adoption_fee) if payload.final_adoption_fee is not None else None, "handover_note": payload.handover_note},
             )
+            _status_audit_log(conn, entity_type="PET", entity_id=int(application["pet_id"]), field_name="status", old_value=old_pet_status, new_value=PET_STATUS_ADOPTED, changed_by=user.username, note=f"Adoption record {adoption_id} created")
+
         return _write_success({"adoption_id": adoption_id})
     except Exception as exc:
         return JSONResponse(status_code=400, content=_write_error(str(exc)))
 
 
 @app.post("/followups")
-def create_followup(
-    payload: CreateFollowupBody,
-    user: SessionUser = Depends(require_permission("followups:create")),
-):
+def create_followup(payload: CreateFollowupBody, user: SessionUser = Depends(require_permission("followups:create"))):
     try:
         with db_session(write=True) as conn:
             followup_id = _next_id(conn, "FOLLOW_UP", "followup_id")
-            after_state = {
-                "followup_id": followup_id,
-                "adoption_id": payload.adoption_id,
-                "followup_date": (payload.followup_date or date.today()).isoformat(),
-                "followup_type": payload.followup_type,
-                "pet_condition": payload.pet_condition,
-                "adopter_feedback": payload.adopter_feedback,
-                "result_status": payload.result_status,
-                "staff_note": payload.staff_note,
-            }
+            followup_date = (payload.followup_date or date.today()).isoformat()
             conn.execute(
-                """
-                INSERT INTO FOLLOW_UP (
-                    followup_id, adoption_id, followup_date, followup_type,
-                    pet_condition, adopter_feedback, result_status, staff_note
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    followup_id,
-                    payload.adoption_id,
-                    after_state["followup_date"],
-                    payload.followup_type,
-                    payload.pet_condition,
-                    payload.adopter_feedback,
-                    payload.result_status,
-                    payload.staff_note,
-                ),
+                "INSERT INTO FOLLOW_UP (followup_id, adoption_id, followup_date, followup_type, pet_condition, adopter_feedback, result_status, staff_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (followup_id, payload.adoption_id, followup_date, payload.followup_type, payload.pet_condition, payload.adopter_feedback, payload.result_status, payload.staff_note),
             )
             _audit_log(
                 conn,
@@ -604,8 +536,9 @@ def create_followup(
                 entity="FOLLOW_UP",
                 entity_id=str(followup_id),
                 before_state=None,
-                after_state=after_state,
+                after_state={"followup_id": followup_id, "adoption_id": payload.adoption_id, "followup_date": followup_date, "followup_type": payload.followup_type, "pet_condition": payload.pet_condition, "adopter_feedback": payload.adopter_feedback, "result_status": payload.result_status, "staff_note": payload.staff_note},
             )
+
         return _write_success({"followup_id": followup_id})
     except Exception as exc:
         return JSONResponse(status_code=400, content=_write_error(str(exc)))
