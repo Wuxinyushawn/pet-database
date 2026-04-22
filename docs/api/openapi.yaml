@@ -1,0 +1,587 @@
+openapi: 3.1.0
+info:
+  title: Pet Adoption Center API
+  version: 1.1.0
+  description: |
+    联调统一 OpenAPI 准绳。前后端接口协作必须以本文件为单一事实来源（Single Source of Truth）。
+servers:
+  - url: /api
+
+tags:
+  - name: Pets
+  - name: Applications
+  - name: Adoptions
+  - name: FollowUps
+  - name: Volunteers
+  - name: Dashboard
+
+paths:
+  /pets:
+    get:
+      tags: [Pets]
+      summary: List pets
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/PetStatus'
+        - in: query
+          name: species
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pet list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Paginated'
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/Pet'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /pets/{petId}:
+    get:
+      tags: [Pets]
+      summary: Get pet detail
+      parameters:
+        - $ref: '#/components/parameters/PetId'
+      responses:
+        '200':
+          description: Pet detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Pet'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /applications:
+    get:
+      tags: [Applications]
+      summary: List adoption applications
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/ApplicationStatus'
+      responses:
+        '200':
+          description: Application list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Paginated'
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/Application'
+    post:
+      tags: [Applications]
+      summary: Create adoption application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ApplicationCreated'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/PetNotAvailableError'
+
+  /applications/{applicationId}/review:
+    patch:
+      tags: [Applications]
+      summary: Review application
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewApplicationRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ApplicationReviewResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/InvalidTransitionError'
+
+  /adoptions:
+    get:
+      tags: [Adoptions]
+      summary: List adoptions
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Adoption list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Paginated'
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/Adoption'
+    post:
+      tags: [Adoptions]
+      summary: Create adoption record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdoptionRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AdoptionCreated'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/InvalidTransitionError'
+
+  /followups:
+    get:
+      tags: [FollowUps]
+      summary: List followups
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - in: query
+          name: resultStatus
+          schema:
+            $ref: '#/components/schemas/FollowupStatus'
+      responses:
+        '200':
+          description: Followup list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/Paginated'
+                          - type: object
+                            properties:
+                              items:
+                                type: array
+                                items:
+                                  $ref: '#/components/schemas/Followup'
+    post:
+      tags: [FollowUps]
+      summary: Create followup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFollowupRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FollowupCreated'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard aggregate metrics
+      responses:
+        '200':
+          description: Summary metrics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DashboardSummary'
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+    PetId:
+      name: petId
+      in: path
+      required: true
+      schema: { type: integer }
+    ApplicationId:
+      name: applicationId
+      in: path
+      required: true
+      schema: { type: integer }
+
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            invalidField:
+              value:
+                success: false
+                error:
+                  code: VALIDATION_ERROR
+                  message: petId is required
+                  details:
+                    field: petId
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            notFound:
+              value:
+                success: false
+                error:
+                  code: NOT_FOUND
+                  message: Resource not found
+    InvalidTransitionError:
+      description: Entity status transition is invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            invalidTransition:
+              value:
+                success: false
+                error:
+                  code: APP_INVALID_TRANSITION
+                  message: Cannot transition from Pending to Pending
+    PetNotAvailableError:
+      description: Pet is unavailable for applying/adopting
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          examples:
+            unavailable:
+              value:
+                success: false
+                error:
+                  code: PET_NOT_AVAILABLE
+                  message: Pet must be in Available status
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, data, error]
+      properties:
+        success: { type: boolean, const: true }
+        data: {}
+        error: { type: 'null' }
+
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, const: false }
+        error:
+          $ref: '#/components/schemas/ErrorObject'
+
+    ErrorObject:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    ErrorCode:
+      type: string
+      description: Unified business/system error code dictionary
+      enum:
+        - VALIDATION_ERROR
+        - APP_INVALID_TRANSITION
+        - PET_NOT_AVAILABLE
+        - NOT_FOUND
+        - CONFLICT
+        - UNAUTHORIZED
+        - SERVER_ERROR
+
+    Paginated:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items: {}
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+
+    PetStatus:
+      type: string
+      enum: [Available, Reserved, MedicalHold, Adopted]
+
+    ApplicationStatus:
+      type: string
+      enum: [Pending, Approved, Rejected]
+
+    AssignmentStatus:
+      type: string
+      description: Care assignment status dictionary
+      enum: [Active, Completed, Cancelled]
+
+    FollowupStatus:
+      type: string
+      description: Follow-up processing result dictionary
+      enum: [Scheduled, Completed, Missed]
+
+    Pet:
+      type: object
+      required: [pet_id, shelter_id, name, species, intake_date, status]
+      properties:
+        pet_id: { type: integer }
+        shelter_id: { type: integer }
+        name: { type: string }
+        species: { type: string }
+        breed: { type: string }
+        sex: { type: string }
+        color: { type: string }
+        intake_date: { type: string, format: date }
+        status:
+          $ref: '#/components/schemas/PetStatus'
+
+    Application:
+      type: object
+      required: [application_id, applicant_id, pet_id, application_date, status]
+      properties:
+        application_id: { type: integer }
+        applicant_id: { type: integer }
+        pet_id: { type: integer }
+        application_date: { type: string, format: date }
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        reason: { type: string, nullable: true }
+        reviewed_date: { type: string, format: date, nullable: true }
+        reviewer_name: { type: string, nullable: true }
+        decision_note: { type: string, nullable: true }
+
+    Adoption:
+      type: object
+      required: [adoption_id, application_id, adoption_date]
+      properties:
+        adoption_id: { type: integer }
+        application_id: { type: integer }
+        adoption_date: { type: string, format: date }
+        final_adoption_fee: { type: number, nullable: true }
+        handover_note: { type: string, nullable: true }
+
+    Followup:
+      type: object
+      required: [followup_id, adoption_id, followup_date, result_status]
+      properties:
+        followup_id: { type: integer }
+        adoption_id: { type: integer }
+        followup_date: { type: string, format: date }
+        followup_type: { type: string, nullable: true }
+        pet_condition: { type: string, nullable: true }
+        adopter_feedback: { type: string, nullable: true }
+        result_status:
+          $ref: '#/components/schemas/FollowupStatus'
+        staff_note: { type: string, nullable: true }
+
+    CreateApplicationRequest:
+      type: object
+      required: [applicantId, petId, reason]
+      properties:
+        applicantId: { type: integer }
+        petId: { type: integer }
+        reason: { type: string }
+        applicationDate: { type: string, format: date }
+
+    ReviewApplicationRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        reviewerName: { type: string }
+        decisionNote: { type: string }
+        reviewedDate: { type: string, format: date }
+
+    CreateAdoptionRequest:
+      type: object
+      required: [applicationId, adoptionDate]
+      properties:
+        applicationId: { type: integer }
+        adoptionDate: { type: string, format: date }
+        finalAdoptionFee: { type: number }
+        handoverNote: { type: string }
+
+    CreateFollowupRequest:
+      type: object
+      required: [adoptionId, followupDate, resultStatus]
+      properties:
+        adoptionId: { type: integer }
+        followupDate: { type: string, format: date }
+        followupType: { type: string }
+        petCondition: { type: string }
+        adopterFeedback: { type: string }
+        resultStatus:
+          $ref: '#/components/schemas/FollowupStatus'
+        staffNote: { type: string }
+
+    ApplicationCreated:
+      type: object
+      required: [applicationId]
+      properties:
+        applicationId: { type: integer }
+
+    ApplicationReviewResult:
+      type: object
+      required: [applicationId, status]
+      properties:
+        applicationId: { type: integer }
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+
+    AdoptionCreated:
+      type: object
+      required: [adoptionId]
+      properties:
+        adoptionId: { type: integer }
+
+    FollowupCreated:
+      type: object
+      required: [followupId]
+      properties:
+        followupId: { type: integer }
+
+    DashboardSummary:
+      type: object
+      required:
+        - total_pets
+        - available_pets
+        - total_applications
+        - pending_applications
+        - approved_applications
+        - total_adoptions
+        - total_followups
+      properties:
+        total_pets: { type: integer }
+        available_pets: { type: integer }
+        total_applications: { type: integer }
+        pending_applications: { type: integer }
+        approved_applications: { type: integer }
+        total_adoptions: { type: integer }
+        total_followups: { type: integer }
+
+x-governance:
+  sourceOfTruth: docs/api/openapi.yaml
+  changePolicy:
+    - API 变更必须先更新 OpenAPI 文档，再提交服务端或前端实现。
+    - 联调期间若实现与文档冲突，以文档为准并立即回收不兼容实现。
