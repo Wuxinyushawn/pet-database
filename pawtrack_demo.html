@@ -290,6 +290,11 @@ const uiState = {
   assignments: [],
   activity: []
 };
+const ENUMS = globalThis.ENUMS || {
+  followupStatus: {
+    COMPLETED: 'Completed'
+  }
+};
 
 let currentPage = 'dashboard';
 let keySequence = '';
@@ -715,21 +720,8 @@ async function submitNewFollowup() {
   const staffNote = document.getElementById('fu-note').value.trim();
   if (!adoptionId || !date || !petCondition || !feedback) return showToast('Please fill all follow-up fields.', 'danger');
 
-  const fallbackCompleted = globalThis.ENUMS?.followupStatus?.COMPLETED ?? 'Completed';
-  const optimisticFollowupId = typeof nextTempId === 'function' ? nextTempId('FU') : `TEMP-${Date.now()}`;
-  const normalizedResult = result || fallbackCompleted;
-  const normalizedStaffNote = staffNote || 'Pending sync';
   const snapshot = structuredClone(uiState.followups);
-  uiState.followups.unshift({
-    id: optimisticFollowupId,
-    adoptionId,
-    date,
-    type,
-    petCondition,
-    feedback,
-    result: normalizedResult,
-    staffNote: normalizedStaffNote
-  });
+  uiState.followups.unshift({ id: `TEMP-${Date.now()}`, adoptionId, date, type, petCondition, feedback, result: ENUMS.followupStatus.COMPLETED, staffNote: 'Pending sync' });
   renderFollowups(uiState);
 
   try {
@@ -739,8 +731,8 @@ async function submitNewFollowup() {
       type,
       petCondition,
       feedback,
-      resultStatus: normalizedResult,
-      staffNote: normalizedStaffNote
+      resultStatus: result || ENUMS.followupStatus.COMPLETED,
+      staffNote: staffNote || 'Pending sync'
     });
     await refreshFollowups();
     closeModal();
