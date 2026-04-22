@@ -54,6 +54,8 @@ button,input,select,textarea{font:inherit}
 .card .v{font-size:24px;font-weight:700}
 .card .s{font-size:12px;color:var(--text-secondary)}
 .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.toolbar-group{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.spacer{flex:1}
 .input,.select,.textarea{border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);padding:7px 10px;font-size:13px}
 .input{min-width:210px}
 .textarea{width:100%;min-height:90px;resize:vertical}
@@ -61,6 +63,12 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th{padding:8px 9px;font-size:12px;text-align:left;color:var(--text-secondary);border-bottom:1px solid var(--border)}
 td{padding:10px 9px;border-bottom:1px solid var(--border);vertical-align:top}
 tr:hover td{background:var(--bg-secondary)}
+.th-sort{cursor:pointer;user-select:none}
+.th-sort::after{content:' ↕';font-size:11px;color:var(--text-secondary)}
+.th-sort[data-order="asc"]::after{content:' ↑'}
+.th-sort[data-order="desc"]::after{content:' ↓'}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;flex-wrap:wrap}
+.pager .meta{font-size:12px;color:var(--text-secondary)}
 .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600}
 .b-available{background:#e7f3da;color:#335f0f}
 .b-reserved{background:#faedd7;color:#7a4a08}
@@ -145,14 +153,23 @@ tr:hover td{background:var(--bg-secondary)}
       <div class="page-title">Pet management</div>
       <div class="section">
         <div class="toolbar">
-          <input class="input" id="pet-search" placeholder="Search by name or breed">
-          <select class="select" id="pet-status-filter"><option value="">All statuses</option><option>Available</option><option>Reserved</option><option>Medical hold</option><option>Adopted</option></select>
-          <select class="select" id="pet-species-filter"><option value="">All species</option><option>Dog</option><option>Cat</option><option>Rabbit</option></select>
+          <div class="toolbar-group">
+            <input class="input" id="pet-search" placeholder="Search by name or breed">
+            <select class="select" id="pet-status-filter"><option value="">All statuses</option><option>Available</option><option>Reserved</option><option>Medical hold</option><option>Adopted</option></select>
+            <select class="select" id="pet-species-filter"><option value="">All species</option><option>Dog</option><option>Cat</option><option>Rabbit</option></select>
+            <button class="btn" id="pet-clear-filter">Clear filters</button>
+          </div>
+          <div class="spacer"></div>
+          <div class="toolbar-group">
+            <select class="select" id="pet-page-size"><option value="5">5 / page</option><option value="10" selected>10 / page</option><option value="20">20 / page</option><option value="50">50 / page</option></select>
+            <button class="btn" id="pet-export">Export CSV</button>
+          </div>
         </div>
         <table>
-          <thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Status</th><th>Intake</th><th>Actions</th></tr></thead>
+          <thead><tr><th class="th-sort" data-sort="pet_id">ID</th><th class="th-sort" data-sort="name">Name</th><th class="th-sort" data-sort="species">Species</th><th class="th-sort" data-sort="breed">Breed</th><th class="th-sort" data-sort="status">Status</th><th class="th-sort" data-sort="intake_date">Intake</th><th>Actions</th></tr></thead>
           <tbody id="pet-tbody"></tbody>
         </table>
+        <div id="pet-pager" class="pager"></div>
       </div>
     </section>
 
@@ -164,13 +181,24 @@ tr:hover td{background:var(--bg-secondary)}
           <button class="btn btn-primary" id="btn-new-app">+ New application</button>
         </div>
         <div class="toolbar">
-          <input class="input" id="app-search" placeholder="Search applicant or pet">
-          <select class="select" id="app-status-filter"><option value="">All statuses</option><option>Pending</option><option>Approved</option><option>Rejected</option></select>
+          <div class="toolbar-group">
+            <input class="input" id="app-search" placeholder="Search applicant or pet">
+            <select class="select" id="app-status-filter"><option value="">All statuses</option><option>under_review</option><option>approved</option><option>rejected</option></select>
+            <button class="btn" id="app-clear-filter">Clear filters</button>
+          </div>
+          <div class="spacer"></div>
+          <div class="toolbar-group">
+            <select class="select" id="app-saved-filters"><option value="">Saved filters</option></select>
+            <button class="btn" id="app-save-filter">Save current filter</button>
+            <select class="select" id="app-page-size"><option value="5">5 / page</option><option value="10" selected>10 / page</option><option value="20">20 / page</option><option value="50">50 / page</option></select>
+            <button class="btn" id="app-export">Export CSV</button>
+          </div>
         </div>
         <table>
-          <thead><tr><th>ID</th><th>Applicant</th><th>Pet</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th class="th-sort" data-sort="application_id">ID</th><th>Applicant</th><th>Pet</th><th class="th-sort" data-sort="application_date">Date</th><th class="th-sort" data-sort="status">Status</th><th>Actions</th></tr></thead>
           <tbody id="app-tbody"></tbody>
         </table>
+        <div id="app-pager" class="pager"></div>
       </div>
     </section>
 
@@ -273,9 +301,14 @@ const uiState = {
   assignments: [],
   activity: []
 };
+const listViewState = {
+  pets: { page: 1, page_size: 10, sort_by: 'pet_id', sort_order: 'asc', search: '', status: '', species: '', pagination: { page: 1, page_size: 10, total: 0, total_pages: 1 } },
+  applications: { page: 1, page_size: 10, sort_by: 'application_id', sort_order: 'asc', search: '', status: '', pagination: { page: 1, page_size: 10, total: 0, total_pages: 1 } }
+};
 
 let currentPage = 'dashboard';
 let keySequence = '';
+const APP_FILTER_PREFS_KEY = 'pawtrack.saved_application_filters.v1';
 
 function esc(str){ return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function badge(type, text){ return `<span class="badge ${type}">${esc(text)}</span>`; }
@@ -299,6 +332,21 @@ function normalizeList(payload, fallbackKey) {
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.[fallbackKey])) return payload[fallbackKey];
   return [];
+}
+function normalizePagination(payload, page, pageSize) {
+  const p = payload?.pagination || {};
+  return {
+    page: Number(p.page || page),
+    page_size: Number(p.page_size || pageSize),
+    total: Number(p.total || 0),
+    total_pages: Number(p.total_pages || 1)
+  };
+}
+function getSavedApplicationFilters() {
+  try { return JSON.parse(localStorage.getItem(APP_FILTER_PREFS_KEY) || '[]'); } catch { return []; }
+}
+function setSavedApplicationFilters(items) {
+  localStorage.setItem(APP_FILTER_PREFS_KEY, JSON.stringify(items.slice(0, 10)));
 }
 
 function go(page) {
@@ -340,20 +388,30 @@ function statusBadge(s) {
   const map = {
     'Available':'b-available','Reserved':'b-reserved','Adopted':'b-adopted','Medical hold':'b-hold',
     'Pending':'b-pending','Approved':'b-approved','Rejected':'b-rejected','Done':'b-done','Completed':'b-done',
-    'Active':'b-active','Inactive':'b-inactive'
+    'Active':'b-active','Inactive':'b-inactive',
+    'under_review':'b-pending','approved':'b-approved','rejected':'b-rejected'
   };
   return badge(map[s] || '', s);
 }
 
 function renderPets(state) {
-  const q = document.getElementById('pet-search').value.toLowerCase();
-  const st = document.getElementById('pet-status-filter').value;
-  const sp = document.getElementById('pet-species-filter').value;
-  const filtered = state.pets.filter(p => (!q || p.name.toLowerCase().includes(q) || p.breed.toLowerCase().includes(q)) && (!st || p.status===st) && (!sp || p.species===sp));
-  document.getElementById('pet-tbody').innerHTML = filtered.length ? filtered.map((p) => `<tr>
+  const rows = state.pets;
+  document.getElementById('pet-tbody').innerHTML = rows.length ? rows.map((p) => `<tr>
     <td>${p.id}</td><td><strong>${esc(p.name)}</strong></td><td>${esc(p.species)}</td><td>${esc(p.breed)}</td>
     <td>${statusBadge(p.status)}</td><td>${p.intake}</td>
     <td><button class="btn" data-pet-id="${esc(p.id)}">View</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty">No pets found.</td></tr>`;
+  const pager = listViewState.pets.pagination;
+  document.getElementById('pet-pager').innerHTML = `
+    <div class="meta">Page ${pager.page} / ${pager.total_pages} · ${pager.total} records</div>
+    <div>
+      <button class="btn" id="pet-prev" ${pager.page <= 1 ? 'disabled' : ''}>Prev</button>
+      <button class="btn" id="pet-next" ${pager.page >= pager.total_pages ? 'disabled' : ''}>Next</button>
+    </div>
+  `;
+  const prev = document.getElementById('pet-prev');
+  const next = document.getElementById('pet-next');
+  if (prev) prev.onclick = () => updatePetsView({ page: Math.max(1, listViewState.pets.page - 1) });
+  if (next) next.onclick = () => updatePetsView({ page: Math.min(pager.total_pages, listViewState.pets.page + 1) });
 
   document.querySelectorAll('[data-pet-id]').forEach(btn => btn.onclick = () => openPetDetail(btn.dataset.petId));
 }
@@ -372,15 +430,25 @@ function openPetDetail(petId){
 }
 
 function renderApplications(state) {
-  const q = document.getElementById('app-search').value.toLowerCase();
-  const st = document.getElementById('app-status-filter').value;
-  const list = state.applications.filter(a => (!q || a.applicant.toLowerCase().includes(q) || a.pet.toLowerCase().includes(q)) && (!st || a.status === st));
+  const list = state.applications;
   document.getElementById('app-tbody').innerHTML = list.length ? list.map(a => {
-    const action = a.status === 'Pending'
+    const action = a.status === 'under_review'
       ? `<button class="btn" data-app-view="${esc(a.id)}">View</button> <button class="btn btn-success" data-app-review="${esc(a.id)}">Review</button>`
       : `<button class="btn" data-app-view="${esc(a.id)}">View</button>`;
     return `<tr><td>${a.id}</td><td><strong>${esc(a.applicant)}</strong></td><td>${esc(a.pet)}</td><td>${a.date}</td><td>${statusBadge(a.status)}</td><td>${action}</td></tr>`;
   }).join('') : `<tr><td colspan="6" class="empty">No applications found.</td></tr>`;
+  const pager = listViewState.applications.pagination;
+  document.getElementById('app-pager').innerHTML = `
+    <div class="meta">Page ${pager.page} / ${pager.total_pages} · ${pager.total} records</div>
+    <div>
+      <button class="btn" id="app-prev" ${pager.page <= 1 ? 'disabled' : ''}>Prev</button>
+      <button class="btn" id="app-next" ${pager.page >= pager.total_pages ? 'disabled' : ''}>Next</button>
+    </div>
+  `;
+  const prev = document.getElementById('app-prev');
+  const next = document.getElementById('app-next');
+  if (prev) prev.onclick = () => updateApplicationsView({ page: Math.max(1, listViewState.applications.page - 1) });
+  if (next) next.onclick = () => updateApplicationsView({ page: Math.min(pager.total_pages, listViewState.applications.page + 1) });
 
   document.querySelectorAll('[data-app-view]').forEach(btn => btn.onclick = () => openAppDetail(btn.dataset.appView));
   document.querySelectorAll('[data-app-review]').forEach(btn => btn.onclick = () => openReviewModal(btn.dataset.appReview));
@@ -419,11 +487,12 @@ async function submitReview(applicationId, decision) {
   if (!note) return showToast('Decision note is required.', 'danger');
 
   const snapshot = structuredClone(uiState.applications);
-  uiState.applications = uiState.applications.map(app => app.id === applicationId ? { ...app, status: decision, decision: note, reviewer: 'Staff (you)' } : app);
+  const normalizedStatus = decision.toLowerCase();
+  uiState.applications = uiState.applications.map(app => app.id === applicationId ? { ...app, status: normalizedStatus, decision: note, reviewer: 'Staff (you)' } : app);
   renderApplications(uiState);
 
   try {
-    await applicationsApi.reviewApplication(applicationId, { decision, note, reviewer: 'Staff (you)' });
+    await applicationsApi.reviewApplication(applicationId, { status: normalizedStatus, decision_note: note, reviewer_name: 'Staff (you)' });
     await refreshApplications();
     await refreshPets();
     closeModal();
@@ -619,13 +688,56 @@ function renderAll(){
   renderVolunteers(uiState);
 }
 
+function renderSavedApplicationFilters() {
+  const current = getSavedApplicationFilters();
+  const saved = current.length ? current : [{ name: '仅看待审批申请', filter: { search: '', status: 'under_review' } }];
+  if (!current.length) setSavedApplicationFilters(saved);
+  const select = document.getElementById('app-saved-filters');
+  select.innerHTML = '<option value="">Saved filters</option>' + saved.map(item => `<option value="${esc(item.name)}">${esc(item.name)}</option>`).join('');
+}
+
+function updatePetsView(partial) {
+  listViewState.pets = { ...listViewState.pets, ...partial };
+  refreshPets();
+}
+
+function updateApplicationsView(partial) {
+  listViewState.applications = { ...listViewState.applications, ...partial };
+  refreshApplications();
+}
+
 async function refreshPets() {
-  uiState.pets = normalizeList(await petsApi.listPets(), 'pets');
+  const payload = await petsApi.listPets(listViewState.pets);
+  uiState.pets = normalizeList(payload, 'pets').map(p => ({
+    id: String(p.pet_id),
+    name: p.name,
+    species: p.species,
+    breed: p.breed,
+    status: p.status,
+    intake: p.intake_date,
+    sex: p.sex,
+    color: p.color,
+    birth: p.intake_date,
+    sterilized: 'Unknown',
+    special: '—'
+  }));
+  listViewState.pets.pagination = normalizePagination(payload, listViewState.pets.page, listViewState.pets.page_size);
   renderDashboard(uiState);
   renderPets(uiState);
 }
 async function refreshApplications() {
-  uiState.applications = normalizeList(await applicationsApi.listApplications(), 'applications');
+  const payload = await applicationsApi.listApplications(listViewState.applications);
+  uiState.applications = normalizeList(payload, 'applications').map(a => ({
+    id: String(a.application_id),
+    applicant: a.applicant_name || `Applicant #${a.applicant_id}`,
+    pet: a.pet_name || `Pet #${a.pet_id}`,
+    date: a.application_date,
+    status: a.status,
+    reviewer: a.reviewer_name || '—',
+    reason: a.reason || '—',
+    decision: a.decision_note || '—'
+  }));
+  listViewState.applications.pagination = normalizePagination(payload, listViewState.applications.page, listViewState.applications.page_size);
   renderDashboard(uiState);
   renderApplications(uiState);
 }
@@ -670,10 +782,58 @@ window.addEventListener('hashchange', () => {
   if (document.getElementById(`page-${page}`)) go(page);
 });
 
-['pet-search','pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('input', () => renderPets(uiState)));
-['pet-status-filter','pet-species-filter'].forEach(id => document.getElementById(id).addEventListener('change', () => renderPets(uiState)));
-['app-search','app-status-filter'].forEach(id => document.getElementById(id).addEventListener('input', () => renderApplications(uiState)));
-document.getElementById('app-status-filter').addEventListener('change', () => renderApplications(uiState));
+document.getElementById('pet-search').addEventListener('input', (e) => updatePetsView({ page: 1, search: e.target.value.trim() }));
+document.getElementById('pet-status-filter').addEventListener('change', (e) => updatePetsView({ page: 1, status: e.target.value }));
+document.getElementById('pet-species-filter').addEventListener('change', (e) => updatePetsView({ page: 1, species: e.target.value }));
+document.getElementById('pet-page-size').addEventListener('change', (e) => updatePetsView({ page: 1, page_size: Number(e.target.value) }));
+document.getElementById('pet-clear-filter').addEventListener('click', () => {
+  document.getElementById('pet-search').value = '';
+  document.getElementById('pet-status-filter').value = '';
+  document.getElementById('pet-species-filter').value = '';
+  updatePetsView({ page: 1, search: '', status: '', species: '' });
+});
+document.getElementById('pet-export').addEventListener('click', () => petsApi.exportPetsCsv(listViewState.pets));
+
+document.getElementById('app-search').addEventListener('input', (e) => updateApplicationsView({ page: 1, search: e.target.value.trim() }));
+document.getElementById('app-status-filter').addEventListener('change', (e) => updateApplicationsView({ page: 1, status: e.target.value }));
+document.getElementById('app-page-size').addEventListener('change', (e) => updateApplicationsView({ page: 1, page_size: Number(e.target.value) }));
+document.getElementById('app-clear-filter').addEventListener('click', () => {
+  document.getElementById('app-search').value = '';
+  document.getElementById('app-status-filter').value = '';
+  updateApplicationsView({ page: 1, search: '', status: '' });
+});
+document.getElementById('app-export').addEventListener('click', () => applicationsApi.exportApplicationsCsv(listViewState.applications));
+document.getElementById('app-save-filter').addEventListener('click', () => {
+  const name = window.prompt('Filter name', 'Only under review');
+  if (!name) return;
+  const saved = getSavedApplicationFilters();
+  const next = [{ name, filter: { search: listViewState.applications.search, status: listViewState.applications.status } }, ...saved.filter(item => item.name !== name)];
+  setSavedApplicationFilters(next);
+  renderSavedApplicationFilters();
+  showToast(`Saved filter "${name}"`, 'success');
+});
+document.getElementById('app-saved-filters').addEventListener('change', (e) => {
+  const saved = getSavedApplicationFilters().find(item => item.name === e.target.value);
+  if (!saved) return;
+  document.getElementById('app-search').value = saved.filter.search || '';
+  document.getElementById('app-status-filter').value = saved.filter.status || '';
+  updateApplicationsView({ page: 1, search: saved.filter.search || '', status: saved.filter.status || '' });
+});
+
+document.querySelectorAll('#page-pets .th-sort').forEach(th => th.addEventListener('click', () => {
+  const key = th.dataset.sort;
+  const nextOrder = listViewState.pets.sort_by === key && listViewState.pets.sort_order === 'asc' ? 'desc' : 'asc';
+  document.querySelectorAll('#page-pets .th-sort').forEach(node => node.dataset.order = '');
+  th.dataset.order = nextOrder;
+  updatePetsView({ page: 1, sort_by: key, sort_order: nextOrder });
+}));
+document.querySelectorAll('#page-applications .th-sort').forEach(th => th.addEventListener('click', () => {
+  const key = th.dataset.sort;
+  const nextOrder = listViewState.applications.sort_by === key && listViewState.applications.sort_order === 'asc' ? 'desc' : 'asc';
+  document.querySelectorAll('#page-applications .th-sort').forEach(node => node.dataset.order = '');
+  th.dataset.order = nextOrder;
+  updateApplicationsView({ page: 1, sort_by: key, sort_order: nextOrder });
+}));
 
 document.getElementById('btn-new-app').onclick = openNewApplicationModal;
 document.getElementById('btn-new-adoption').onclick = openNewAdoptionModal;
@@ -698,6 +858,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 if (location.hash && document.getElementById(`page-${location.hash.slice(1)}`)) go(location.hash.slice(1));
+renderSavedApplicationFilters();
 initializeData();
 </script>
 </body>

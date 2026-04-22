@@ -10,11 +10,13 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
+import csv
+import io
 from pathlib import Path
 from typing import Any, Generator
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 DB_PATH = Path(__file__).parent.parent / "pet_database.db"
@@ -61,6 +63,30 @@ def _write_success(data: Any = None) -> dict[str, Any]:
 
 def _write_error(message: str) -> dict[str, Any]:
     return {"success": False, "data": None, "error": message}
+
+
+def _sanitize_sort_order(sort_order: str) -> str:
+    return "DESC" if str(sort_order).lower() == "desc" else "ASC"
+
+
+def _pagination_meta(*, page: int, page_size: int, total: int) -> dict[str, int]:
+    total_pages = max((total + page_size - 1) // page_size, 1)
+    return {
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": total_pages,
+    }
+
+
+def _dicts_to_csv(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return ""
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+    writer.writeheader()
+    writer.writerows(rows)
+    return output.getvalue()
 
 
 # ── Error Handling ────────────────────────────────────────────────────────────
@@ -112,16 +138,55 @@ class CreateFollowupBody(BaseModel):
 # ── Read Endpoints ────────────────────────────────────────────────────────────
 
 @app.get("/pets")
-def get_pets() -> dict[str, Any]:
+def get_pets(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=200),
+    sort_by: str = Query(default="pet_id"),
+    sort_order: str = Query(default="asc"),
+    search: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    species: str | None = Query(default=None),
+) -> dict[str, Any]:
+    sortable_columns = {
+        "pet_id": "pet_id",
+        "name": "name",
+        "species": "species",
+        "breed": "breed",
+        "status": "status",
+        "intake_date": "intake_date",
+    }
+    sort_column = sortable_columns.get(sort_by, "pet_id")
+    sort_direction = _sanitize_sort_order(sort_order)
+    clauses: list[str] = []
+    params: list[Any] = []
+    if search:
+        clauses.append("(LOWER(name) LIKE ? OR LOWER(breed) LIKE ?)")
+        like = f"%{search.lower()}%"
+        params.extend([like, like])
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if species:
+        clauses.append("species = ?")
+        params.append(species)
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
     with db_session() as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS c FROM PET {where_sql}",
+            params,
+        ).fetchone()["c"]
+        offset = (page - 1) * page_size
+        query_params = [*params, page_size, offset]
         rows = conn.execute(
             """
             SELECT pet_id, shelter_id, name, species, breed, sex, color, intake_date, status
             FROM PET
-            ORDER BY pet_id
             """
+            + f"{where_sql} ORDER BY {sort_column} {sort_direction} LIMIT ? OFFSET ?",
+            query_params,
         ).fetchall()
-        return {"data": _rows_to_dicts(rows)}
+        return {"data": _rows_to_dicts(rows), "pagination": _pagination_meta(page=page, page_size=page_size, total=total)}
 
 
 @app.get("/pets/{pet_id}")
@@ -134,44 +199,166 @@ def get_pet(pet_id: int) -> dict[str, Any]:
 
 
 @app.get("/applications")
-def get_applications() -> dict[str, Any]:
+def get_applications(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=200),
+    sort_by: str = Query(default="application_id"),
+    sort_order: str = Query(default="asc"),
+    search: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+) -> dict[str, Any]:
+    sortable_columns = {
+        "application_id": "aa.application_id",
+        "application_date": "aa.application_date",
+        "status": "aa.status",
+        "reviewed_date": "aa.reviewed_date",
+    }
+    sort_column = sortable_columns.get(sort_by, "aa.application_id")
+    sort_direction = _sanitize_sort_order(sort_order)
+    clauses: list[str] = []
+    params: list[Any] = []
+    if search:
+        like = f"%{search.lower()}%"
+        clauses.append("(LOWER(ap.name) LIKE ? OR LOWER(pt.name) LIKE ?)")
+        params.extend([like, like])
+    if status:
+        clauses.append("aa.status = ?")
+        params.append(status)
+    where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
     with db_session() as conn:
+        total = conn.execute(
+            """
+            SELECT COUNT(*) AS c
+            FROM ADOPTION_APPLICATION aa
+            LEFT JOIN APPLICANT ap ON ap.applicant_id = aa.applicant_id
+            LEFT JOIN PET pt ON pt.pet_id = aa.pet_id
+            """
+            + where_sql,
+            params,
+        ).fetchone()["c"]
+        offset = (page - 1) * page_size
+        query_params = [*params, page_size, offset]
         rows = conn.execute(
             """
             SELECT aa.application_id, aa.applicant_id, aa.pet_id, aa.application_date, aa.status,
-                   aa.reason, aa.reviewed_date, aa.reviewer_name, aa.decision_note
+                   aa.reason, aa.reviewed_date, aa.reviewer_name, aa.decision_note,
+                   ap.name AS applicant_name, pt.name AS pet_name
             FROM ADOPTION_APPLICATION aa
-            ORDER BY aa.application_id
+            LEFT JOIN APPLICANT ap ON ap.applicant_id = aa.applicant_id
+            LEFT JOIN PET pt ON pt.pet_id = aa.pet_id
             """
+            + f"{where_sql} ORDER BY {sort_column} {sort_direction} LIMIT ? OFFSET ?",
+            query_params,
         ).fetchall()
-        return {"data": _rows_to_dicts(rows)}
+        return {"data": _rows_to_dicts(rows), "pagination": _pagination_meta(page=page, page_size=page_size, total=total)}
 
 
 @app.get("/adoptions")
-def get_adoptions() -> dict[str, Any]:
+def get_adoptions(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=200),
+    sort_by: str = Query(default="adoption_id"),
+    sort_order: str = Query(default="asc"),
+) -> dict[str, Any]:
+    sortable_columns = {
+        "adoption_id": "adoption_id",
+        "application_id": "application_id",
+        "adoption_date": "adoption_date",
+        "final_adoption_fee": "final_adoption_fee",
+    }
+    sort_column = sortable_columns.get(sort_by, "adoption_id")
+    sort_direction = _sanitize_sort_order(sort_order)
     with db_session() as conn:
+        total = conn.execute("SELECT COUNT(*) AS c FROM ADOPTION_RECORD").fetchone()["c"]
+        offset = (page - 1) * page_size
         rows = conn.execute(
             """
             SELECT adoption_id, application_id, adoption_date, final_adoption_fee, handover_note
             FROM ADOPTION_RECORD
-            ORDER BY adoption_id
             """
+            + f" ORDER BY {sort_column} {sort_direction} LIMIT ? OFFSET ?",
+            (page_size, offset),
         ).fetchall()
-        return {"data": _rows_to_dicts(rows)}
+        return {"data": _rows_to_dicts(rows), "pagination": _pagination_meta(page=page, page_size=page_size, total=total)}
 
 
 @app.get("/followups")
-def get_followups() -> dict[str, Any]:
+def get_followups(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=10, ge=1, le=200),
+    sort_by: str = Query(default="followup_id"),
+    sort_order: str = Query(default="asc"),
+) -> dict[str, Any]:
+    sortable_columns = {
+        "followup_id": "followup_id",
+        "adoption_id": "adoption_id",
+        "followup_date": "followup_date",
+        "result_status": "result_status",
+    }
+    sort_column = sortable_columns.get(sort_by, "followup_id")
+    sort_direction = _sanitize_sort_order(sort_order)
     with db_session() as conn:
+        total = conn.execute("SELECT COUNT(*) AS c FROM FOLLOW_UP").fetchone()["c"]
+        offset = (page - 1) * page_size
         rows = conn.execute(
             """
             SELECT followup_id, adoption_id, followup_date, followup_type,
                    pet_condition, adopter_feedback, result_status, staff_note
             FROM FOLLOW_UP
-            ORDER BY followup_id
             """
+            + f" ORDER BY {sort_column} {sort_direction} LIMIT ? OFFSET ?",
+            (page_size, offset),
         ).fetchall()
-        return {"data": _rows_to_dicts(rows)}
+        return {"data": _rows_to_dicts(rows), "pagination": _pagination_meta(page=page, page_size=page_size, total=total)}
+
+
+@app.get("/pets/export")
+def export_pets_csv(
+    sort_by: str = Query(default="pet_id"),
+    sort_order: str = Query(default="asc"),
+    search: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    species: str | None = Query(default=None),
+):
+    payload = get_pets(
+        page=1,
+        page_size=20000,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        search=search,
+        status=status,
+        species=species,
+    )
+    csv_str = _dicts_to_csv(payload["data"])
+    return StreamingResponse(
+        iter([csv_str]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=pets_export.csv"},
+    )
+
+
+@app.get("/applications/export")
+def export_applications_csv(
+    sort_by: str = Query(default="application_id"),
+    sort_order: str = Query(default="asc"),
+    search: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+):
+    payload = get_applications(
+        page=1,
+        page_size=20000,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        search=search,
+        status=status,
+    )
+    csv_str = _dicts_to_csv(payload["data"])
+    return StreamingResponse(
+        iter([csv_str]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=applications_export.csv"},
+    )
 
 
 @app.get("/dashboard/summary")
