@@ -71,7 +71,7 @@ WHERE c.volunteer_id = 2
 ORDER BY c.assignment_date DESC, c.shift;
 
 
--- Q6: View all adoption applications that are currently under review
+-- Q6: View all adoption applications that are currently pending review
 -- Purpose: Adoption manager checks pending applications waiting for decision
 SELECT 
     a.application_id,
@@ -84,19 +84,19 @@ SELECT
 FROM ADOPTION_APPLICATION a
 JOIN APPLICANT ap ON a.applicant_id = ap.applicant_id
 JOIN PET p ON a.pet_id = p.pet_id
-WHERE a.status = 'Under Review'
+WHERE a.status = 'Pending'
 ORDER BY a.application_date;
 
 
 -- Q7: Approve a selected adoption application
--- Example: approve application_id = 1 if it is currently under review
+-- Example: approve application_id = 1 if it is currently pending review
 UPDATE ADOPTION_APPLICATION
 SET status = 'Approved',
     reviewed_date = CURDATE(),
     reviewer_name = 'Staff A',
     decision_note = 'Applicant meets adoption requirements'
 WHERE application_id = 1
-  AND status = 'Under Review';
+  AND status = 'Pending';
 
 
 -- Q8: Insert a follow-up record after a completed adoption
@@ -112,7 +112,7 @@ INSERT INTO FOLLOW_UP (
     staff_note
 ) 
     SELECT
-        COALESCE(MAX(followup_id), 0) + 1,
+        next_id.next_followup_id,
         2,
         CURDATE(),
         'Phone Check',
@@ -120,4 +120,14 @@ INSERT INTO FOLLOW_UP (
         'Pet is adapting well to the new home',
         'Good',
         'No issues reported by adopter'
-    FROM FOLLOW_UP;
+    FROM (
+        SELECT COALESCE(MAX(followup_id), 0) + 1 AS next_followup_id
+        FROM FOLLOW_UP
+    ) AS next_id
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM FOLLOW_UP existing
+        WHERE existing.adoption_id = 2
+          AND existing.followup_date = CURDATE()
+          AND existing.followup_type = 'Phone Check'
+    );
