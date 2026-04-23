@@ -44,7 +44,6 @@ def ensure_audit_tables(conn: sqlite3.Connection) -> None:
 def write_audit_log(
     conn: sqlite3.Connection,
     *,
-    next_id: int,
     actor_username: str,
     actor_role: str,
     action: str,
@@ -56,12 +55,11 @@ def write_audit_log(
     conn.execute(
         """
         INSERT INTO AUDIT_LOG (
-            audit_id, actor_username, actor_role, action, entity, entity_id,
+            actor_username, actor_role, action, entity, entity_id,
             before_state, after_state, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            next_id,
             actor_username,
             actor_role,
             action,

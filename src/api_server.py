@@ -19,7 +19,9 @@ from audit_utils import ensure_audit_tables, write_audit_log, write_status_audit
 from security import ROLE_PERMISSIONS, USER_STORE, create_session_token, verify_session_token
 
 DB_PATH = Path(__file__).parent.parent / "pet_database.db"
-SESSION_SECRET = os.getenv("PET_API_SESSION_SECRET", "pet-db-dev-secret-change-me")
+SESSION_SECRET = os.getenv("PET_API_SESSION_SECRET")
+if not SESSION_SECRET:
+    raise RuntimeError("PET_API_SESSION_SECRET environment variable must be set")
 SESSION_TTL_HOURS = 12
 
 app = FastAPI(title="Pet Database REST API", version="1.2.0")
@@ -119,6 +121,22 @@ class SessionUser(BaseModel):
     role: str
 
 
+def get_current_user(authorization: str | None = Header(default=None)) -> SessionUser:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+
+    try:
+        claims = verify_session_token(token, secret=SESSION_SECRET)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    return SessionUser(username=claims["username"], role=claims["role"])
+
+
 def require_permission(permission: str):
     def _check(user: SessionUser = Depends(get_current_user)) -> SessionUser:
         if permission not in ROLE_PERMISSIONS.get(user.role, set()):
@@ -140,7 +158,6 @@ def _audit_log(
 ) -> None:
     write_audit_log(
         conn,
-        next_id=_next_id(conn, "AUDIT_LOG", "audit_id"),
         actor_username=actor.username,
         actor_role=actor.role,
         action=action,
@@ -209,6 +226,8 @@ class CreateFollowupBody(BaseModel):
 
 @app.post("/auth/login")
 def login(payload: LoginBody) -> dict[str, Any]:
+    if not USER_STORE:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Login is disabled: no configured users")
     user = USER_STORE.get(payload.username)
     if not user or user["password"] != payload.password:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
@@ -282,6 +301,9 @@ def get_assignments(_: SessionUser = Depends(get_current_user)) -> dict[str, Any
 
 @app.get("/audit-logs/recent")
 def get_recent_audit_logs(limit: int = 20, _: SessionUser = Depends(require_permission("audit:read"))) -> dict[str, Any]:
+    if limit < 1:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="limit must be >= 1")
+    limit = min(limit, 100)
     with db_session() as conn:
         rows = conn.execute("SELECT audit_id, actor_username, actor_role, action, entity, entity_id, before_state, after_state, created_at FROM AUDIT_LOG ORDER BY audit_id DESC LIMIT ?", (limit,)).fetchall()
         return {"data": _rows_to_dicts(rows)}

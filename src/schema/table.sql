@@ -179,7 +179,7 @@ CREATE TABLE FOLLOW_UP (
 -- append-only write operation audit trail
 -- =========================================
 CREATE TABLE IF NOT EXISTS AUDIT_LOG (
-    audit_id INT PRIMARY KEY,
+    audit_id INTEGER PRIMARY KEY,
     actor_username VARCHAR(100) NOT NULL,
     actor_role VARCHAR(50) NOT NULL,
     action VARCHAR(100) NOT NULL,
@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS AUDIT_LOG (
 -- audit trail for status transitions
 -- =========================================
 CREATE TABLE IF NOT EXISTS STATUS_AUDIT_LOG (
-    audit_id INT PRIMARY KEY,
+    audit_id INTEGER PRIMARY KEY,
     entity_type VARCHAR(50) NOT NULL,
     entity_id INT NOT NULL,
     field_name VARCHAR(50) NOT NULL,
